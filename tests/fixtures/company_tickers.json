@@ -1,0 +1,4 @@
+{"0": {"cik_str": 1234, "ticker": "ACME", "title": "Acme Widgets Inc."},
+ "1": {"cik_str": 1318605, "ticker": "TSLA", "title": "Tesla, Inc."},
+ "2": {"cik_str": 27419, "ticker": "TGT", "title": "TARGET CORP"},
+ "3": {"cik_str": 99999, "ticker": "FRST", "title": "First Example Bancorp"}}

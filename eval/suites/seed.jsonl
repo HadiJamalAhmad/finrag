@@ -1,0 +1,20 @@
+{"id": "aapl-supply-risk", "question": "What risks does Apple describe about its dependence on suppliers and manufacturing partners?", "answerable": true, "gold": {"ticker": "AAPL", "form": "10-K", "section": "1A"}}
+{"id": "aapl-segments", "question": "How does Apple describe its reportable segments and its main product categories?", "answerable": true, "gold": {"ticker": "AAPL", "form": "10-K", "section": "1"}}
+{"id": "aapl-net-sales-drivers", "question": "According to Apple's MD&A, what drove the change in total net sales over the fiscal year?", "answerable": true, "gold": {"ticker": "AAPL", "form": "10-K", "section": "7"}}
+{"id": "msft-cloud", "question": "How does Microsoft's management explain the growth of Microsoft Cloud revenue?", "answerable": true, "gold": {"ticker": "MSFT", "form": "10-K", "section": "7"}}
+{"id": "msft-ai-risk", "question": "What risks related to artificial intelligence does Microsoft disclose?", "answerable": true, "gold": {"ticker": "MSFT", "form": "10-K", "section": "1A"}}
+{"id": "msft-cyber", "question": "How does Microsoft describe its cybersecurity risk management and governance?", "answerable": true, "gold": {"ticker": "MSFT", "form": "10-K", "section": "1C"}}
+{"id": "nvda-export", "question": "What does NVIDIA say about U.S. export controls and their impact on its business?", "answerable": true, "gold": {"ticker": "NVDA", "form": "10-K", "section": "1A"}}
+{"id": "nvda-datacenter", "question": "What drove NVIDIA's Data Center revenue according to management's discussion?", "answerable": true, "gold": {"ticker": "NVDA", "form": "10-K", "section": "7"}}
+{"id": "nvda-customers", "question": "How concentrated is NVIDIA's revenue among its largest customers?", "answerable": true, "gold": {"ticker": "NVDA", "form": "10-K", "section": "1A"}}
+{"id": "jpm-credit-risk", "question": "How does JPMorgan Chase describe the credit risks it faces?", "answerable": true, "gold": {"ticker": "JPM", "form": "10-K", "section": "1A"}}
+{"id": "jpm-legal", "question": "What legal proceedings does JPMorgan Chase report?", "answerable": true, "gold": {"ticker": "JPM", "form": "10-K", "section": "3"}}
+{"id": "jpm-market-risk", "question": "How does JPMorgan Chase measure and manage market risk?", "answerable": true, "gold": {"ticker": "JPM", "form": "10-K", "section": "7A"}}
+{"id": "tsla-revenue", "question": "What was Tesla's total revenue last fiscal year?", "answerable": false, "why": "company not in corpus"}
+{"id": "amzn-aws", "question": "How fast did Amazon Web Services grow according to Amazon's annual report?", "answerable": false, "why": "company not in corpus"}
+{"id": "aapl-2009", "question": "What was Apple's net income in fiscal 2009?", "answerable": false, "why": "fiscal year not covered"}
+{"id": "msft-2031", "question": "What revenue does Microsoft report for fiscal year 2031?", "answerable": false, "why": "fiscal year not covered"}
+{"id": "nvda-stock-forecast", "question": "What will NVIDIA's share price be at the end of next year?", "answerable": false, "why": "a forecast no filing contains"}
+{"id": "jpm-ceo-hobby", "question": "What is the favourite sport of JPMorgan Chase's CEO?", "answerable": false, "why": "personal fact no filing contains"}
+{"id": "aapl-store-employee", "question": "What is the name of the manager of Apple's Fifth Avenue store?", "answerable": false, "why": "detail no filing contains"}
+{"id": "msft-office-lunch", "question": "What does the Microsoft cafeteria in Redmond serve on Fridays?", "answerable": false, "why": "detail no filing contains"}
