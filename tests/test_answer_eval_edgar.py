@@ -71,6 +71,22 @@ def test_user_agent_is_required():
         edgar.EdgarClient("")
 
 
+@pytest.mark.parametrize("ua", [
+    "Your Name your.email@example.com",          # the .env.example template, verbatim
+    '  Your Name your.email@example.com  ',
+    "Jane Doe jane@example.org",                  # reserved example domains (RFC 2606)
+    "Jane Doe jane@mail.EXAMPLE.net",
+])
+def test_placeholder_user_agent_is_refused(ua):
+    with pytest.raises(ValueError, match="placeholder"):
+        edgar.EdgarClient(ua)
+
+
+def test_a_real_looking_user_agent_is_accepted():
+    edgar.EdgarClient("Jane Doe jane.doe@university.edu")
+    edgar.EdgarClient("Jane Doe jane@notexample.com")
+
+
 def test_recent_filings_keeps_the_newest_per_form():
     payload = {"name": "Acme Widgets Inc.", "filings": {"recent": {
         "form": ["10-Q", "8-K", "10-K", "10-Q", "10-K"],
@@ -85,9 +101,9 @@ def test_recent_filings_keeps_the_newest_per_form():
         seen.append(request)
         return httpx.Response(200, json=payload)
 
-    client = edgar.EdgarClient("Test User test@example.com", transport=httpx.MockTransport(handler))
+    client = edgar.EdgarClient("Test User t@finrag.test", transport=httpx.MockTransport(handler))
     out = client.recent_filings("acme", 1234, ("10-K", "10-Q"), limit=1)
     assert [(f.form, f.accession) for f in out] == [("10-Q", "a-1"), ("10-K", "a-3")]
     assert out[1].url == "https://www.sec.gov/Archives/edgar/data/1234/a3/k.htm"
     assert seen[0].url == "https://data.sec.gov/submissions/CIK0000001234.json"
-    assert seen[0].headers["User-Agent"] == "Test User test@example.com"
+    assert seen[0].headers["User-Agent"] == "Test User t@finrag.test"

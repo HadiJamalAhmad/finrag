@@ -12,6 +12,7 @@ and at most 10 requests per second. Both are enforced here, not left to the call
 from __future__ import annotations
 
 import json
+import re
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -47,13 +48,29 @@ class Filing:
         return f"{self.ticker}_{self.form}_{self.period}".replace("/", "-")
 
 
+# The .env.example template and the reserved example domains (RFC 2606) are not a
+# real identity: sending them would tell SEC nothing about who is calling.
+PLACEHOLDER_USER_AGENT = "Your Name your.email@example.com"
+EXAMPLE_DOMAIN_RE = re.compile(r"@(?:[\w-]+\.)*example\.(?:com|org|net)\b", re.IGNORECASE)
+
+
+def check_user_agent(user_agent: str) -> None:
+    """Refuse a User-Agent that SEC would not accept as an identification."""
+    if "@" not in user_agent or len(user_agent.split()) < 2:
+        raise ValueError(
+            "SEC_USER_AGENT must be your name and your email "
+            "(SEC requires a name and a contact address). Set it in .env."
+        )
+    if user_agent.strip() == PLACEHOLDER_USER_AGENT or EXAMPLE_DOMAIN_RE.search(user_agent):
+        raise ValueError(
+            "SEC_USER_AGENT is still the .env.example placeholder (or an example.* address). "
+            "Put your own name and email in .env."
+        )
+
+
 class EdgarClient:
     def __init__(self, user_agent: str, transport: httpx.BaseTransport | None = None):
-        if "@" not in user_agent or len(user_agent.split()) < 2:
-            raise ValueError(
-                "SEC_USER_AGENT must be 'Your Name your.email@example.com' "
-                "(SEC requires a name and a contact address). Set it in .env."
-            )
+        check_user_agent(user_agent)
         self._client = httpx.Client(
             headers={"User-Agent": user_agent, "Accept-Encoding": "gzip, deflate"},
             timeout=30.0,
