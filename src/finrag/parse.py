@@ -6,6 +6,15 @@ different questions, and a citation should say which one it comes from.
 The table of contents lists every Item before the body does, so a header can
 appear twice. For each Item the LONGEST section wins: the TOC entry is a line,
 the real section is pages long.
+
+Two layouts found on real filings (Week 1):
+- Running page headers ("PART II / Item 7" on top of every page, Microsoft): a run
+  of consecutive headings for the same Item is ONE section, not one per page.
+- Cross-reference 10-Ks (JPMorgan): Item 7 says only "MD&A appears on pages 46-160"
+  and Item 3 "Refer to Note 30"; the pages sit later in the same document, after
+  Item 15. A short Item that points to pages or to a Note receives those lines.
+  When references overlap (7A's pages 133-142 lie inside Item 7's 46-160) the
+  narrowest one wins, so every line belongs to exactly one section.
 """
 
 from __future__ import annotations
@@ -31,6 +40,7 @@ TEN_K_TITLES = {
     "9": "Changes in and Disagreements with Accountants",
     "9A": "Controls and Procedures",
     "9B": "Other Information",
+    "9C": "Disclosure Regarding Foreign Jurisdictions that Prevent Inspections",
     "10": "Directors, Executive Officers and Corporate Governance",
     "11": "Executive Compensation",
     "12": "Security Ownership",
@@ -53,6 +63,25 @@ TEN_Q_TITLES = {
 
 ITEM_RE = re.compile(r"^\s*item\s+(\d{1,2}[a-c]?)\s*[.:\-–—]?\s*(.{0,150})$", re.IGNORECASE)
 PART_RE = re.compile(r"^\s*part\s+(i{1,2}|iv|iii)\b", re.IGNORECASE)
+
+# Cross-references inside a short Item body: "on pages 133-142", "page 120", "Note 30".
+# A pointer is a sentence or two (JPM: 13-46 words). NVDA Item 2 (137 words) is a real
+# Properties section that mentions a lease Note in passing: it must not absorb the Note.
+XREF_MAX_WORDS = 60
+PAGES_RE = re.compile(
+    r"\bpages?\s+(\d{1,3})(?:\s*(?:[-–—]|through|to)\s*(\d{1,3}))?", re.IGNORECASE
+)
+NOTE_REF_RE = re.compile(r"\bNote\s+(\d{1,2})\b", re.IGNORECASE)
+# A Note's own heading ("Note 30 – Litigation", "NOTE 14 — CONTINGENCIES"). Lines with
+# a "|" are table-of-contents rows ("Note 30 - Litigation | 302"), not headings.
+NOTE_HEAD_RE = re.compile(r"^\s*note\s+(\d{1,2})\s*[-–—:.](?!.*\|)", re.IGNORECASE)
+# A page footer naming the report: "45 | JPMorgan Chase & Co./2025 Form 10-K" or
+# "JPMorgan Chase & Co./2025 Form 10-K | 46". The number closes that page.
+FOOTER_RE = re.compile(
+    r"^\s*(?:(\d{1,3})\s*\|\s*[^|]*(?:10-K|annual report)[^|]*"
+    r"|[^|]*(?:10-K|annual report)[^|]*\|\s*(\d{1,3}))\s*$",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -103,11 +132,89 @@ def split_sections(text: str, form: str) -> list[Section]:
         if key in titles:
             heads.append((i, key))
 
-    best: dict[str, Section] = {}
+    # Running page headers repeat the same Item on every page: keep the first of a run.
+    heads = [h for n, h in enumerate(heads) if n == 0 or heads[n - 1][1] != h[1]]
+
+    spans: dict[str, tuple[int, int]] = {}  # key -> (first body line, end)
     for n, (start, key) in enumerate(heads):
         end = heads[n + 1][0] if n + 1 < len(heads) else len(lines)
-        body = "\n".join(lines[start + 1 : end]).strip()
-        if key not in best or len(body) > len(best[key].text):
-            best[key] = Section(key=key, title=titles[key], text=body)
+        old = spans.get(key)
+        if old is None or _chars(lines, start + 1, end) > _chars(lines, *old):
+            spans[key] = (start + 1, end)
+
+    owner: list[str | None] = [None] * len(lines)
+    for key, (a, b) in spans.items():
+        owner[a:b] = [key] * (b - a)
+    _apply_cross_references(lines, spans, owner)
+
     order = list(titles)
-    return sorted(best.values(), key=lambda s: order.index(s.key))
+    out: list[Section] = []
+    for key in sorted(spans, key=order.index):
+        body = "\n".join(ln for ln, k in zip(lines, owner, strict=True) if k == key).strip()
+        out.append(Section(key=key, title=titles[key], text=body))
+    return out
+
+
+def _chars(lines: list[str], a: int, b: int) -> int:
+    return sum(len(ln) for ln in lines[a:b])
+
+
+def _page_of_lines(lines: list[str]) -> list[int | None]:
+    """Page number of every line, from footers that close each page (None if unknown)."""
+    pages: list[int | None] = [None] * len(lines)
+    prev = 0
+    for i, line in enumerate(lines):
+        m = FOOTER_RE.match(line)
+        if not m:
+            continue
+        page = int(m.group(1) or m.group(2))
+        if page <= 0:
+            continue
+        pages[prev : i + 1] = [page] * (i + 1 - prev)
+        prev = i + 1
+    return pages
+
+
+def _note_lines(lines: list[str], note: int) -> range | None:
+    """Lines of Note `note`: from its heading to the next different Note's heading."""
+    start = None
+    for i, line in enumerate(lines):
+        m = NOTE_HEAD_RE.match(line)
+        if not m:
+            continue
+        if start is None and int(m.group(1)) == note:
+            start = i
+        elif start is not None and int(m.group(1)) != note:
+            return range(start, i)
+    return range(start, len(lines)) if start is not None else None
+
+
+def _apply_cross_references(
+    lines: list[str], spans: dict[str, tuple[int, int]], owner: list[str | None]
+) -> None:
+    """Give a short Item the pages or the Note its body points to (in place)."""
+    pages: list[int | None] | None = None
+    claims: list[tuple[str, list[int]]] = []
+    for key, (a, b) in spans.items():
+        body = "\n".join(lines[a:b])
+        if len(body.split()) > XREF_MAX_WORDS:
+            continue
+        pm, nm = PAGES_RE.search(body), NOTE_REF_RE.search(body)
+        if pm and (not nm or pm.start() < nm.start()):
+            if pages is None:
+                pages = _page_of_lines(lines)
+            lo = int(pm.group(1))
+            hi = int(pm.group(2) or lo)
+            idx = [i for i, p in enumerate(pages) if p is not None and lo <= p <= hi]
+        elif nm:
+            found = _note_lines(lines, int(nm.group(1)))
+            idx = list(found) if found else []
+        else:
+            continue
+        idx = [i for i in idx if not a <= i < b]  # never claim the pointer itself
+        if idx:
+            claims.append((key, idx))
+    # Widest first, so a narrower reference nested inside it overwrites its lines.
+    for key, idx in sorted(claims, key=lambda c: -len(c[1])):
+        for i in idx:
+            owner[i] = key
