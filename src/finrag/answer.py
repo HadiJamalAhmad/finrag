@@ -102,9 +102,10 @@ def answer(question: str, sc: scope.Scope, store, settings: Settings, llm=genera
                      environment=ctx.get("environment")) as root:
         a = _answer(question, sc, store, settings, llm, root)
         # What a reviewer needs at a glance; sources and usage go to metadata.
-        root.update(output={"answer": a.answer, "stage": a.stage, "reason": a.reason},
-                    metadata={"sources": a.sources, "usage": a.usage,
-                              "ungrounded_numbers": a.ungrounded_numbers})
+        # The answer itself, at a glance; the deciding stage is in metadata and scores.
+        root.update(output=a.answer,
+                    metadata={"stage": a.stage, "reason": a.reason, "sources": a.sources,
+                              "usage": a.usage, "ungrounded_numbers": a.ungrounded_numbers})
         # Known only at the end: scores, not tags (tags are fixed at creation).
         root.score("outcome", a.stage, "CATEGORICAL", comment=a.reason)
         root.score("refused", 1 if a.refused else 0, "BOOLEAN")

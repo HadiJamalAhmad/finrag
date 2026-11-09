@@ -90,15 +90,18 @@ NULL = NullObservation()
 
 
 class Tracer:
-    def __init__(self, client=None, environment: str = "development"):
-        self.client, self.environment = client, environment
+    def __init__(self, client=None, environment: str = "development",
+                 channel: str | None = None):
+        # channel: where requests come from (api | cli | eval), a tag on every trace.
+        self.client, self.environment, self.channel = client, environment, channel
 
     @property
     def enabled(self) -> bool:
         return self.client is not None
 
     @classmethod
-    def from_settings(cls, s, environment: str | None = None, **sdk_options) -> Tracer:
+    def from_settings(cls, s, environment: str | None = None, channel: str | None = None,
+                      **sdk_options) -> Tracer:
         """The SDK client from Settings; a disabled Tracer when the keys are absent.
 
         sdk_options go to langfuse.Langfuse (tests pass an in-memory span_exporter, an
@@ -106,13 +109,17 @@ class Tracer:
         """
         env = environment or s.environment
         if not (s.langfuse_public_key and s.langfuse_secret_key):
-            return cls(None, env)
+            return cls(None, env, channel)
+        import os
+
         from langfuse import Langfuse
 
+        # Otherwise OpenTelemetry reports "unknown_service:python" on every observation.
+        os.environ.setdefault("OTEL_SERVICE_NAME", "finrag")
         client = Langfuse(public_key=s.langfuse_public_key, secret_key=s.langfuse_secret_key,
                           base_url=s.langfuse_base_url, environment=env,
                           release=f"finrag-{__version__}", **sdk_options)
-        return cls(client, env)
+        return cls(client, env, channel)
 
     @contextmanager
     def root(self, name: str, as_type: str, input, tags: list[str],
@@ -123,12 +130,24 @@ class Tracer:
             yield NULL
             return
         from langfuse import propagate_attributes
+        from opentelemetry import context as otel_context
 
-        with propagate_attributes(tags=["finrag", *tags], trace_name=name,
-                                  environment=environment or self.environment):
-            with self.client.start_as_current_observation(
-                    name=name, as_type=as_type, input=input, metadata=metadata) as obs:
-                yield Observation(obs)
+        channel = [self.channel] if self.channel else []
+        # An empty OpenTelemetry context: finrag's root has no parent and starts its own
+        # trace. Seen in production (2026-11-09): with a foreign span active (runtime or a
+        # library), roots nested under it; the export filter dropped that span, leaving
+        # each root orphaned in a borrowed trace id.
+        token = otel_context.attach(otel_context.Context())
+        try:
+            # Order kept, duplicates dropped (the eval channel and eval context both say "eval").
+            unique = list(dict.fromkeys(["finrag", *channel, *tags]))
+            with propagate_attributes(tags=unique, trace_name=name,
+                                      environment=environment or self.environment):
+                with self.client.start_as_current_observation(
+                        name=name, as_type=as_type, input=input, metadata=metadata) as obs:
+                    yield Observation(obs)
+        finally:
+            otel_context.detach(token)
 
     def score_trace(self, trace_id: str, name: str, value, data_type: str,
                     comment: str | None = None) -> None:

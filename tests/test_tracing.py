@@ -21,7 +21,9 @@ from finrag.config import Settings
 from finrag.tools import build_guard
 from finrag.tracing import NULL, Tracer
 
-S = Settings(sec_user_agent="x y@z", min_score=0.55, gpu="L4")
+# Keys pinned empty: the developer's .env must never turn a test into a live call.
+S = Settings(sec_user_agent="x y@z", min_score=0.55, gpu="L4", langfuse_public_key="",
+             langfuse_secret_key="")
 GEN = ans.Generation("A single supplier in Taiwan [1].",
                      models.Usage("llama-3b", 900, 40, 4.5, 1), "stop", "Item 1A says...")
 
@@ -100,7 +102,9 @@ def test_an_answer_is_one_trace_typed_stage_by_stage(sc):
         ("check-figures", "guardrail")]
     assert attr(root, "observation.type") == "chain"
     assert attr(root, "observation.input") == "Who supplies Acme?"
-    assert attr(root, "observation.output")["stage"] == "answered"
+    # The root shows the answer at a glance; the stage is metadata (and a score).
+    assert attr(root, "observation.output") == GEN.text
+    assert attr(root, "observation.metadata.stage") == "answered"
     # Tags set at creation, on every observation; environment separates test traffic.
     assert set(root.attributes["langfuse.trace.tags"]) == {"finrag", "pipeline", "llama-3b"}
     assert all(s.attributes["langfuse.environment"] == "test" for s in spans)
@@ -145,6 +149,14 @@ def test_a_refusal_warns_at_its_stage_and_is_scored_not_tagged(sc):
         "langfuse.trace.tags"]
 
 
+def test_the_channel_is_a_tag_set_at_creation(sc):
+    cap = Capture()
+    cap.tracer.channel = "api"
+    ans.answer("Who supplies Acme?", sc, FakeStore(), S, llm=lambda p, s: GEN, tracer=cap.tracer)
+    root = by_name(cap.spans(), "answer-question")[0]
+    assert "api" in root.attributes["langfuse.trace.tags"]
+
+
 def test_tracing_failures_never_break_the_answer(sc):
     cap = Capture(fail_http=True)  # scores cannot be sent
     a = ans.answer("Who supplies Acme?", sc, FakeStore(), S, llm=lambda p, s: GEN,
@@ -156,12 +168,15 @@ def test_tracing_failures_never_break_the_answer(sc):
 # ---------------------------------------------------------------- eval
 def test_eval_traces_go_to_the_eval_environment_with_a_correct_score(sc):
     cap = Capture()
+    cap.tracer.channel = "eval"  # as in finrag eval and the bake-off
     suite = [{"id": "acme-supplier", "question": "Who supplies Acme?", "answerable": True,
               "gold": {"ticker": "ACME", "form": "10-K", "section": "1A"}}]
     evaluate.run(suite, sc, FakeStore(), S, llm=lambda p, s: GEN, tracer=cap.tracer)
     root = by_name(cap.spans(), "answer-question")[0]
     assert root.attributes["langfuse.environment"] == "eval"
-    assert "eval" in root.attributes["langfuse.trace.tags"]
+    assert attr(root, "observation.metadata.expected")["section"] == "1A"  # ground truth
+    tags = root.attributes["langfuse.trace.tags"]
+    assert "eval" in tags and len(tags) == len(set(tags))  # no duplicate tag
     assert attr(root, "observation.metadata.case") == "acme-supplier"
     assert cap.scores()["correct"]["value"] == 1  # answerable and answered
 
@@ -192,3 +207,16 @@ def test_agent_trace_one_generation_per_turn_tools_as_siblings(sc):
     out = attr(by_name(spans, "generate-response")[0], "observation.output")
     assert json.loads(out["tool_calls"][0]["function"]["arguments"])["ticker"] == "ACME"
     assert cap.scores()["outcome"]["value"] == a.stage
+
+
+def test_the_root_never_attaches_to_an_ambient_opentelemetry_span(sc):
+    # Production 2026-11-09: a foreign span (runtime / library) was active; the root nested
+    # under it, the export filter dropped it, and the trace was orphaned and borrowed.
+    cap = Capture()
+    ambient = TracerProvider().get_tracer("some-library")
+    with ambient.start_as_current_span("ambient-request") as outer:
+        ans.answer("Who supplies Acme?", sc, FakeStore(), S, llm=lambda p, s: GEN,
+                   tracer=cap.tracer)
+    root = by_name(cap.spans(), "answer-question")[0]
+    assert root.parent is None
+    assert root.context.trace_id != outer.get_span_context().trace_id

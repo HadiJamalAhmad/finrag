@@ -23,3 +23,15 @@ def html_10k() -> str:
 @pytest.fixture
 def sec_names() -> dict:
     return json.loads((FIX / "company_tickers.json").read_text(encoding="utf-8"))
+
+
+# config.py loads the developer's .env at import. Tests stay offline (CLAUDE.md): no
+# Settings built inside a test may carry a real provider or tracing key.
+LIVE_KEYS = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "LANGFUSE_PUBLIC_KEY",
+             "LANGFUSE_SECRET_KEY"]
+
+
+@pytest.fixture(autouse=True)
+def no_live_keys(monkeypatch):
+    for name in LIVE_KEYS:
+        monkeypatch.delenv(name, raising=False)

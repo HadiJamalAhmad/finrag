@@ -62,7 +62,7 @@ def cmd_ask(args, s) -> None:
     from finrag.store import Store
     from finrag.tracing import Tracer
 
-    tracer = Tracer.from_settings(s)
+    tracer = Tracer.from_settings(s, channel="cli")
     a = answer(args.question, _scope(s), Store(s), s, tracer=tracer)
     tracer.flush()  # a short-lived process: send the trace before exiting
     print(a.answer)
@@ -82,7 +82,7 @@ def cmd_agent(args, s) -> None:
 
     sc = _scope(s)
     guard, model = agent.from_settings(s, Store(s), sc, args.max_calls)
-    tracer = Tracer.from_settings(s)
+    tracer = Tracer.from_settings(s, channel="cli")
     a = agent.traced_run(args.question, sc, guard, model, s, tracer)
     tracer.flush()
     print(a.answer)
@@ -103,7 +103,8 @@ def cmd_eval(args, s) -> None:
     from finrag.tracing import Tracer
 
     # Retrieval-only runs never call the model: nothing worth a trace.
-    tracer = Tracer.from_settings(s) if not args.retrieval_only else None
+    tracer = (Tracer.from_settings(s, environment="eval", channel="eval")
+              if not args.retrieval_only else None)
     report = evaluate.run(evaluate.load_suite(Path(args.suite)), _scope(s), Store(s), s,
                           with_llm=not args.retrieval_only, tracer=tracer)
     if tracer:

@@ -64,7 +64,7 @@ def _deps():
 def _tracer():
     from finrag.tracing import Tracer
 
-    return Tracer.from_settings(get_settings())  # a no-op without Langfuse keys
+    return Tracer.from_settings(get_settings(), channel="api")  # no-op without keys
 
 
 @app.get("/health")
