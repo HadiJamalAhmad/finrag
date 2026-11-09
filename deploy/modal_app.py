@@ -3,13 +3,16 @@
     uv run modal deploy deploy/modal_app.py                 # the API (one L4 GPU)
     uv run modal run deploy/modal_app.py::bakeoff_all       # same eval, every model
 
-Everything the API reads is baked into the image at deploy time, from this PC:
-- data/qdrant, data/manifest.json, data/company_tickers.json (run `finrag ingest` first)
-- data/facts/*.json (company facts for the agent; cached, so SEC is never called
-  from Modal and the SEC User-Agent never leaves .env)
-- the bge-small embedder and the three models of deploy/models.lock, digests checked
-  at build time (deploy/pull_models.py): the build fails if Ollama serves other weights.
-Re-deploy after any re-ingest.
+    uv run modal run deploy/modal_app.py::upload_data       # after every `finrag ingest`
+
+The image holds code and models: the bge-small embedder and the three models of
+deploy/models.lock, digests checked at build time (deploy/pull_models.py): the build
+fails if Ollama serves other weights. CI redeploys it on every push to main.
+
+The corpus is in the Volume `finrag-data`, uploaded from this PC (data/ is gitignored):
+- qdrant/, manifest.json, company_tickers.json (run `finrag ingest` first)
+- facts/*.json (company facts for the agent; cached, so SEC is never called from
+  Modal and the SEC User-Agent never leaves .env)
 
 Models (src/finrag/models.py): llama-3b (default), qwen3-4b, mistral-24b. Mistral
 Small 24B is ~15 GB at 4-bit, so the GPU has 24 GB: an L4, or an A10G when no L4 is
@@ -64,14 +67,33 @@ image = (
         "OLLAMA_KEEP_ALIVE": "-1",
     })
     .run_commands(f"python -c \"from fastembed import TextEmbedding; TextEmbedding('{EMBED}')\"")
-    .add_local_dir(DATA / "qdrant", "/data/qdrant", copy=True)
-    .add_local_dir(DATA / "facts", "/data/facts", copy=True)
-    .add_local_file(DATA / "manifest.json", "/data/manifest.json", copy=True)
-    .add_local_file(DATA / "company_tickers.json", "/data/company_tickers.json", copy=True)
     .add_local_python_source("finrag")
 )
 
 app = modal.App("finrag")
+
+# The corpus lives in a Volume, not in the image: data/ is gitignored, so CI (which has
+# only the repo) can redeploy the code while the index stays what was uploaded.
+# Upload after every `finrag ingest`:  uv run modal run deploy/modal_app.py::upload_data
+DATA_FILES = ["qdrant", "facts", "manifest.json", "company_tickers.json"]
+VOLUME = modal.Volume.from_name("finrag-data", create_if_missing=True)
+VOL = "/vol"
+
+
+def stage_data() -> None:
+    """Copy the corpus from the Volume to local disk: Qdrant's local mode writes a lock
+    file next to its data, and nothing written here should go back to the Volume."""
+    import shutil
+
+    for name in DATA_FILES:
+        src, dst = Path(VOL) / name, Path("/data") / name
+        if not src.exists():
+            raise RuntimeError(f"{src} missing: run deploy/modal_app.py::upload_data")
+        if src.is_dir():
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+        else:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
 
 
 def start_ollama() -> subprocess.Popen:
@@ -121,6 +143,7 @@ def load_model(name: str) -> None:
     scaledown_window=300,  # idle 5 min -> scale to zero (no GPU cost while idle)
     max_containers=1,
     secrets=[modal.Secret.from_name("finrag-api")],
+    volumes={VOL: VOLUME},
 )
 class Backend:
     def _ensure_ollama(self) -> None:
@@ -134,6 +157,7 @@ class Backend:
 
         # Before finrag.config is imported: Settings reads FINRAG_GPU at import time.
         os.environ["FINRAG_GPU"] = which_gpu()
+        stage_data()
         self.ollama = start_ollama()
         # The default model is warm; another preset loads on its first request.
         load_model(DEFAULT_MODEL)
@@ -171,7 +195,7 @@ class Backend:
         return api
 
 
-@app.function(image=image, gpu=GPUS, memory=32768, timeout=3600)
+@app.function(image=image, gpu=GPUS, memory=32768, timeout=3600, volumes={VOL: VOLUME})
 def bakeoff(model: str, suite_jsonl: str) -> dict:
     """Run the full eval (with the LLM) for one model preset, on the same GPU as the API."""
     from dataclasses import replace
@@ -181,11 +205,31 @@ def bakeoff(model: str, suite_jsonl: str) -> dict:
     from finrag.config import get_settings
     from finrag.store import Store
 
+    stage_data()
     start_ollama()
     load_model(model)
     s = replace(get_settings(), model=model, gpu=which_gpu())
     suite = [json.loads(ln) for ln in suite_jsonl.splitlines() if ln.strip()]
     return evaluate.run(suite, _scope(s), Store(s), s, with_llm=True)
+
+
+@app.local_entrypoint()
+def upload_data() -> None:
+    """Push data/ (index, facts, manifest, SEC company list) from this PC to the Volume."""
+    missing = [n for n in DATA_FILES if not (DATA / n).exists()]
+    if missing:
+        raise SystemExit(f"missing in data/: {missing}. Run `finrag fetch` and `finrag ingest`.")
+    with VOLUME.batch_upload(force=True) as batch:
+        for name in DATA_FILES:
+            path = DATA / name
+            if path.is_dir():
+                # Skip Qdrant's lock file: it belongs to the process that holds the index.
+                for f in path.rglob("*"):
+                    if f.is_file() and f.name != ".lock":
+                        batch.put_file(f, f"/{f.relative_to(DATA).as_posix()}")
+            else:
+                batch.put_file(path, f"/{name}")
+    print("uploaded to Volume finrag-data:", ", ".join(DATA_FILES))
 
 
 @app.local_entrypoint()

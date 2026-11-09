@@ -1,0 +1,87 @@
+# CI/CD for finrag.
+#
+#   every push and pull request:  lint (ruff) + offline tests (pytest)
+#                                 dependency audit (pip-audit) + secret scan (gitleaks)
+#   push to main, all green:      deploy the backend to Modal
+#
+# The front end is not deployed here: Vercel builds web/ on every push to main
+# (project Root Directory = web). The corpus is not deployed here either: it lives in
+# the Modal Volume `finrag-data`, uploaded from a machine that ran `finrag ingest`
+# (deploy/modal_app.py::upload_data), because data/ is not in the repository.
+#
+# Deploy needs two repository secrets, MODAL_TOKEN_ID and MODAL_TOKEN_SECRET (a token
+# made for CI in Modal's settings). Without them the deploy job is skipped, not failed.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev --frozen
+      - run: uv run ruff check .
+      # Offline by design (CLAUDE.md): never hits SEC, Ollama, Modal or the embedder.
+      - run: uv run pytest -q
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      # Known vulnerabilities in the locked dependencies (runtime, dev and deploy).
+      - run: uv export --frozen --all-extras --no-hashes --no-emit-project -o requirements.txt
+      - run: uvx pip-audit -r requirements.txt --strict
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # scan the whole history, not only the last commit
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    needs: [test, audit, secrets]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+    steps:
+      - name: Skip without a Modal token
+        id: token
+        run: |
+          if [ -n "$MODAL_TOKEN_ID" ] && [ -n "$MODAL_TOKEN_SECRET" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::MODAL_TOKEN_ID / MODAL_TOKEN_SECRET not set: deploy skipped"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.token.outputs.ok == 'true'
+        uses: actions/checkout@v4
+      - if: steps.token.outputs.ok == 'true'
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - if: steps.token.outputs.ok == 'true'
+        run: uv sync --extra deploy --frozen
+      - if: steps.token.outputs.ok == 'true'
+        run: uv run modal deploy deploy/modal_app.py

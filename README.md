@@ -99,12 +99,18 @@ browser ─► Vercel  web/index.html, web/api/{query,agent}.js   (adds x-api-ke
 - **Cost.** At most one container; it scales to zero after 5 idle minutes. A cold start
   (GPU + model load) takes 1.5 to 2 minutes; a model not yet loaded adds its load time.
   Every answer reports its tokens, model seconds and estimated GPU cost.
-- **Redeploy** after any re-ingest:
+- **CI/CD** (`.github/workflows/ci.yml`). Every push and PR: ruff, the offline tests,
+  `pip-audit` on the locked dependencies and `gitleaks` on the whole history. A push to
+  `main` with all of them green deploys the backend to Modal (secrets `MODAL_TOKEN_ID`,
+  `MODAL_TOKEN_SECRET`); Vercel builds `web/` from the same push (Root Directory = web).
+- **The corpus is a Modal Volume** (`finrag-data`), not part of the image: `data/` is
+  gitignored, so CI deploys code and models while the index stays what was uploaded.
+  After any re-ingest, from the machine that ran it:
 
 ```bash
 uv sync --extra dev --extra deploy
-uv run modal deploy deploy/modal_app.py          # backend
-git push origin main                             # front end: Vercel builds web/ (Root Directory = web)
+uv run modal run deploy/modal_app.py::upload_data   # data/ -> Volume finrag-data
+uv run modal deploy deploy/modal_app.py             # or push to main and let CI do it
 ```
 
 First checks on the live site: NVIDIA export controls answered from Item 1A; JPMorgan
