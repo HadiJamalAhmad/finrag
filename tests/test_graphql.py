@@ -90,7 +90,8 @@ def test_agent_mode_returns_the_tool_audit_log(client, monkeypatch):
     model = Scripted(call("get_financial_fact", ticker="ACME", metric="revenue",
                           fiscal_year=2025),
                      say("Revenue was $12,345 million [S1]."))
-    monkeypatch.setattr(agent, "from_settings", lambda s, store, scope_: (guard, model))
+    monkeypatch.setattr(agent, "from_settings",
+                        lambda s, store, scope_, groups=None: (guard, model))
     q = '''{ answer(question: "Acme revenue in fiscal 2025?", mode: AGENT) {
               stage sources { n tool } steps } }'''
     a = gql(c, q)["data"]["answer"]

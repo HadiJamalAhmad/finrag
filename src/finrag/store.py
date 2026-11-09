@@ -71,11 +71,11 @@ class Store:
 
     def search(
         self, query: str, k: int, tickers: frozenset[str] = frozenset(),
-        years: frozenset[int] = frozenset(),
+        years: frozenset[int] = frozenset(), groups: frozenset[str] = frozenset(),
     ) -> list[tuple[float, dict]]:
         from qdrant_client.models import FieldCondition, Filter, MatchAny
 
-        must = []
+        must = [permission_filter(groups)]
         if tickers:
             must.append(FieldCondition(key="ticker", match=MatchAny(any=sorted(tickers))))
         if years:
@@ -85,10 +85,28 @@ class Store:
             must.append(FieldCondition(key="fiscal_year", match=MatchAny(any=span)))
         vector = embed([QUERY_PREFIX + query], self.s.embed_model)[0]
         hits = self.client.query_points(
-            self.s.collection, query=vector, limit=k,
-            query_filter=Filter(must=must) if must else None,
+            self.s.collection, query=vector, limit=k, query_filter=Filter(must=must),
         ).points
         return [(h.score, h.payload) for h in hits]
+
+
+def permission_filter(groups: frozenset[str]):
+    """Default deny: a chunk is visible if it is public (no `groups`) or shares a group
+    with the user. No identity = public documents only. Enforced in the vector query
+    itself, so a document a user may not read never reaches the model."""
+    from qdrant_client.models import (
+        FieldCondition,
+        Filter,
+        IsEmptyCondition,
+        MatchAny,
+        PayloadField,
+    )
+
+    public = IsEmptyCondition(is_empty=PayloadField(key="groups"))
+    if not groups:
+        return Filter(must=[public])
+    return Filter(should=[public, FieldCondition(key="groups",
+                                                 match=MatchAny(any=sorted(groups)))])
 
 
 def _uuid(hex_digest: str) -> str:

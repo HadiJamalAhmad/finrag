@@ -93,6 +93,13 @@
           <option value="claude-haiku">Claude Haiku 5.5 (hosted)</option>
         </select>
       </label>
+      <label class="modes" title="Simulated for the demo: in production the bank's SSO decides">Identity
+        <select id="profile" aria-label="Identity (simulated SSO)">
+          <option value="public">No identity (public filings)</option>
+          <option value="agence">Branch staff (group: agence)</option>
+          <option value="risques">Risk department (group: risques)</option>
+        </select>
+      </label>
       <button id="go" type="submit">Ask</button>
     </div>
     <div class="examples" aria-label="Examples">
@@ -154,7 +161,7 @@
       const r = await fetch(`/api/${mode}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question, model }),
+        body: JSON.stringify({ question, model, profile: $("#profile").value }),
       });
       const data = await r.json().catch(() => ({ detail: `HTTP ${r.status}` }));
       if (!r.ok) throw new Error(data.detail ? JSON.stringify(data.detail) : `HTTP ${r.status}`);
@@ -191,9 +198,13 @@
       const ol = el("ol", { class: "sources" });
       for (const s of a.sources) {
         const li = el("li");
-        const link = el("a", { href: s.url, target: "_blank", rel: "noopener" },
-          `${s.ticker} ${s.form} (period ${s.period}), Item ${String(s.section).split("-").pop()} ${s.section_title}`);
-        li.append(link);
+        // A document pushed by a connector (GED, CRM, RPA) has no public URL: plain text.
+        const internal = s.form === "DOC";
+        const label = internal
+          ? `Internal document (${s.section}): ${s.section_title}, indexed ${s.period}`
+          : `${s.ticker} ${s.form} (period ${s.period}), Item ${String(s.section).split("-").pop()} ${s.section_title}`;
+        li.append(internal ? el("span", {}, label)
+                           : el("a", { href: s.url, target: "_blank", rel: "noopener" }, label));
         if (s.score !== undefined) li.append(el("span", { class: "score" }, `  score ${s.score}`));
         ol.append(li);
       }

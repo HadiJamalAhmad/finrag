@@ -25,6 +25,9 @@ class Chunk:
     section: str
     section_title: str
     url: str
+    # Who may read it: () = public (the SEC filings). Otherwise the user must belong to
+    # one of these groups (documents pushed by an information-system connector).
+    groups: tuple[str, ...] = ()
 
     def cite(self) -> str:
         return (
@@ -79,4 +82,21 @@ def chunk_filing(filing: Filing, sections: list[Section]) -> list[Chunk]:
                     url=filing.url,
                 )
             )
+    return out
+
+
+def chunk_document(doc_id: str, title: str, text: str, groups: list[str], source: str,
+                   url: str, date: str) -> list[Chunk]:
+    """Chunks of a document pushed by a connector (GED, CRM export, RPA bot).
+
+    Ids derive from the document id: pushing the same document again overwrites its
+    chunks instead of duplicating them (idempotent upserts, what a connector needs).
+    """
+    out: list[Chunk] = []
+    for n, piece in enumerate(split_words(text)):
+        digest = hashlib.sha1(f"doc|{source}|{doc_id}|{n}".encode()).hexdigest()
+        out.append(Chunk(
+            id=digest, text=f"{title}\n{piece}", ticker="INTERNAL", company=title,
+            form="DOC", fiscal_year=int(date[:4]), period=date, filed=date,
+            section=source, section_title=title, url=url, groups=tuple(groups)))
     return out

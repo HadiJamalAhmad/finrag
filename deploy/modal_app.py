@@ -83,6 +83,9 @@ VOL = "/vol"
 # LANGFUSE_SECRET_KEY. Pushed from .env by deploy/push_secrets.py (never typed here);
 # a missing key only makes its model unavailable (503) or tracing a no-op.
 PROVIDERS = modal.Secret.from_name("finrag-providers")
+# FINRAG_INGEST_KEY: the connector's own credential for POST /documents (checked in
+# finrag.api), distinct from the query key: pushing documents and asking are two rights.
+INGEST = modal.Secret.from_name("finrag-ingest")
 
 
 def stage_data() -> None:
@@ -147,7 +150,7 @@ def load_model(name: str) -> None:
     timeout=900,
     scaledown_window=300,  # idle 5 min -> scale to zero (no GPU cost while idle)
     max_containers=1,
-    secrets=[modal.Secret.from_name("finrag-api"), PROVIDERS],
+    secrets=[modal.Secret.from_name("finrag-api"), PROVIDERS, INGEST],
     volumes={VOL: VOLUME},
 )
 class Backend:
@@ -194,7 +197,9 @@ class Backend:
         @api.middleware("http")
         async def require_key(request: Request, call_next):
             given = request.headers.get("x-api-key", "")
-            if request.url.path != "/health" and not hmac.compare_digest(given, key):
+            # /documents carries its own credential (x-ingest-key, checked by the route).
+            open_paths = {"/health", "/documents"}
+            if request.url.path not in open_paths and not hmac.compare_digest(given, key):
                 return JSONResponse({"detail": "missing or wrong x-api-key"}, status_code=401)
             if request.url.path != "/health":
                 self._ensure_ollama()
