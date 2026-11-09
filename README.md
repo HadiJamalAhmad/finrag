@@ -103,7 +103,7 @@ browser ─► Vercel  web/index.html, web/api/{query,agent}.js   (adds x-api-ke
 ```bash
 uv sync --extra dev --extra deploy
 uv run modal deploy deploy/modal_app.py          # backend
-cd web && vercel deploy --prod                   # front end
+git push origin main                             # front end: Vercel builds web/ (Root Directory = web)
 ```
 
 First checks on the live site: NVIDIA export controls answered from Item 1A; JPMorgan
