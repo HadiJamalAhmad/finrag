@@ -81,6 +81,37 @@ uv run uvicorn finrag.api:app --reload                       # POST /query
 SEC requires every automated client to send a User-Agent with a name and a contact
 address, and allows at most 10 requests per second. `edgar.py` enforces both.
 
+## Deployment (2026-11-09)
+
+Live: **https://finrag-ten.vercel.app** (static page + proxy on Vercel, backend on Modal).
+
+```
+browser ─► Vercel  web/index.html, web/api/{query,agent}.js   (adds x-api-key server-side)
+        ─► Modal   deploy/modal_app.py: finrag.api + Ollama llama3.2:3b on one T4 GPU
+```
+
+- **Backend (Modal).** The image bakes in the index (`data/qdrant`), the manifest, the
+  SEC company list, the cached company facts (`data/facts`), the bge-small embedder and
+  the llama3.2:3b weights. Same model as local runs, so eval numbers stay comparable.
+  SEC is never called from Modal: the User-Agent stays in your `.env`.
+- **Auth.** Every route but `/health` needs `x-api-key` (Modal secret `finrag-api`).
+  Only the Vercel functions hold the key (env `FINRAG_API_KEY`, `FINRAG_BACKEND_URL`).
+- **Cost.** At most one container; it scales to zero after 5 idle minutes. A cold start
+  (GPU + model load) takes about 1.5 minutes; a warm answer about 20 seconds.
+- **Redeploy** after any re-ingest:
+
+```bash
+uv sync --extra dev --extra deploy
+uv run modal deploy deploy/modal_app.py          # backend
+cd web && vercel deploy --prod                   # front end
+```
+
+First checks on the live site: NVIDIA export controls answered from Item 1A; JPMorgan
+market risk answered from Item 7A (the Week 1 cross-reference fix); Tesla refused at
+`scope`; the NVIDIA share-price forecast passes the evidence gate (0.799) and is
+refused at `model`. The agent route works but llama3.2:3b sometimes calls `calculate`
+before fetching any figure; the guard refuses it and the answer is a refusal.
+
 ## Evaluation
 
 `eval/suites/seed.jsonl`: 20 cases to start (12 answerable, 8 unanswerable). An
