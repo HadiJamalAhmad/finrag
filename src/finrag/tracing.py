@@ -139,7 +139,9 @@ class Tracer:
         # each root orphaned in a borrowed trace id.
         token = otel_context.attach(otel_context.Context())
         try:
-            with propagate_attributes(tags=["finrag", *channel, *tags], trace_name=name,
+            # Order kept, duplicates dropped (the eval channel and eval context both say "eval").
+            unique = list(dict.fromkeys(["finrag", *channel, *tags]))
+            with propagate_attributes(tags=unique, trace_name=name,
                                       environment=environment or self.environment):
                 with self.client.start_as_current_observation(
                         name=name, as_type=as_type, input=input, metadata=metadata) as obs:

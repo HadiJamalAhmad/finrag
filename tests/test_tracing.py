@@ -168,13 +168,15 @@ def test_tracing_failures_never_break_the_answer(sc):
 # ---------------------------------------------------------------- eval
 def test_eval_traces_go_to_the_eval_environment_with_a_correct_score(sc):
     cap = Capture()
+    cap.tracer.channel = "eval"  # as in finrag eval and the bake-off
     suite = [{"id": "acme-supplier", "question": "Who supplies Acme?", "answerable": True,
               "gold": {"ticker": "ACME", "form": "10-K", "section": "1A"}}]
     evaluate.run(suite, sc, FakeStore(), S, llm=lambda p, s: GEN, tracer=cap.tracer)
     root = by_name(cap.spans(), "answer-question")[0]
     assert root.attributes["langfuse.environment"] == "eval"
     assert attr(root, "observation.metadata.expected")["section"] == "1A"  # ground truth
-    assert "eval" in root.attributes["langfuse.trace.tags"]
+    tags = root.attributes["langfuse.trace.tags"]
+    assert "eval" in tags and len(tags) == len(set(tags))  # no duplicate tag
     assert attr(root, "observation.metadata.case") == "acme-supplier"
     assert cap.scores()["correct"]["value"] == 1  # answerable and answered
 

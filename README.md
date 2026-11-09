@@ -171,7 +171,7 @@ and Langfuse's observability best practices. The first version posted raw events
 `/api/public/ingestion`, which Langfuse Cloud stops accepting for traces on 2026-11-16.
 
 ```
-answer-question      chain        input: question          output: answer / refusal + stage
+answer-question      chain        input: question          output: the answer (or refusal)
   check-scope        guardrail    WARNING when it refuses
   retrieve-passages  retriever    the exact passages (text + scores) the model will see
   check-evidence     guardrail    best score vs min_score
@@ -185,7 +185,8 @@ answer-with-tools    agent        one generation per model turn; each tool call 
 
 - **Names are stable and verb-first** (dashboards and evaluators key on them); dynamic
   values go to metadata.
-- **Tags at creation** (immutable): `finrag`, `pipeline` or `agent`, the model preset.
+- **Tags at creation** (immutable): `finrag`, the channel (`api`, `cli` or `eval`),
+  `pipeline` or `agent`, the model preset. Stage and reason are root metadata.
   **Scores for what is known only at the end**: `outcome` (the deciding stage), `refused`,
   and `correct` on eval traces.
 - **Environments**: `development` (local), `production` (Modal), `eval` (bake-offs and
@@ -197,8 +198,19 @@ answer-with-tools    agent        one generation per model turn; each tool call 
 - **Tests stay offline**: the real SDK exports to an in-memory OpenTelemetry exporter and
   its HTTP calls go to a mock (`tests/test_tracing.py`).
 
-Setup: `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` in `.env` (project in Langfuse
-Cloud EU), then `uv run python deploy/push_secrets.py` for Modal.
+Setup: `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL` in `.env`
+(project in Langfuse Cloud EU), then `uv run python deploy/push_secrets.py` for Modal.
+
+**Audit of real traces (2026-11-09).** Production traces (pipeline answer, evidence
+refusal, agent, and the 20 eval traces of a bake-off) were fetched with `langfuse-cli`
+and checked against Langfuse's best-practices page, fetched fresh. Found and fixed:
+roots nested under a foreign OpenTelemetry span that the export filter dropped
+(orphaned, in a borrowed trace id); root output as a JSON blob instead of the answer; no
+channel tag; no ground truth on eval traces; `unknown_service:python`; a duplicate tag.
+Re-checked on new traces: every observation present and typed, no orphan, tool calls
+paired by id, `outcome` / `refused` on every trace, `correct` on all 20 eval traces
+(18 true, 2 false: the two over-refusals). Not applicable: user IDs (no login),
+sessions (single request/response), Langfuse prompt management (prompts live in code).
 
 ## Evaluation
 
