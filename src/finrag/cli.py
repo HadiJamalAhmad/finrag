@@ -46,8 +46,11 @@ def cmd_ingest(args, s) -> None:
     for f in filings:
         html = (s.raw_dir / f"{f.doc_id}.html").read_text(encoding="utf-8")
         sections = parse.split_sections(parse.html_to_text(html), f.form)
-        found = ", ".join(sec.key for sec in sections) or "NONE: check the parser"
-        print(f"{f.doc_id}: {len(sections)} sections ({found})")
+        # Word counts make a broken parse visible: a pointer-only or page-sized
+        # Item shows up as a handful of words.
+        found = "  ".join(f"{sec.key}:{len(sec.text.split())}" for sec in sections)
+        print(f"{f.doc_id}: {len(sections)} sections (Item:words)\n  "
+              f"{found or 'NONE: check the parser'}")
         chunks += chunk_filing(f, sections)
     store = Store(s)
     store.reset(len(embed(["dimension probe"], s.embed_model)[0]))

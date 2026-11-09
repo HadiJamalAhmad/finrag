@@ -40,8 +40,10 @@ class Settings:
     llm_model: str = os.environ.get("FINRAG_LLM", "llama3.2:3b")
     top_k: int = int(os.environ.get("FINRAG_TOP_K", "5"))
     # Below this cosine score the best passage is not treated as evidence.
-    # A starting value: calibrate it on the eval suite, never by feel.
-    min_score: float = float(os.environ.get("FINRAG_MIN_SCORE", "0.55"))
+    # 0.72: calibrated on eval/suites/seed.jsonl, real 10-Ks (2026-11-07). Lowest
+    # answerable best score 0.748, highest separable unanswerable 0.700. Tuned on the
+    # seed suite, so NOT held-out; re-check on the Week 2 suite. See README "Status".
+    min_score: float = float(os.environ.get("FINRAG_MIN_SCORE", "0.72"))
 
     @property
     def raw_dir(self) -> Path:
