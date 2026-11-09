@@ -62,9 +62,14 @@ def cited_indices(text: str, n: int) -> list[int]:
 
 def generate(prompt: str, settings: Settings) -> Generation:
     preset = settings.preset
+    if preset.provider != "ollama":
+        from finrag.providers import generate_hosted
+
+        text, usage, done = generate_hosted(prompt, preset, settings)
+        return Generation(text, usage, done)
     # num_ctx and num_predict always explicit, per preset (finrag.models): recent Ollama
     # defaults to a huge context and tried to allocate a 12 GB KV cache on this machine.
-    body = {"model": preset.ollama_tag, "prompt": prompt, "stream": False,
+    body = {"model": preset.model_id, "prompt": prompt, "stream": False,
             **ollama_options(preset)}
     r = httpx.post(f"{settings.ollama_url}/api/generate", json=body, timeout=300.0)
     r.raise_for_status()

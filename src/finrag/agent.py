@@ -65,7 +65,7 @@ class OllamaChat:
     usage: Usage | None = None  # summed over every turn of one question
 
     def chat(self, messages: list[dict], tools: list[dict]) -> dict:
-        body = {"model": self.preset.ollama_tag, "messages": messages, "tools": tools,
+        body = {"model": self.preset.model_id, "messages": messages, "tools": tools,
                 "stream": False,
                 # num_ctx explicitly, always: see CLAUDE.md (the default exhausts RAM here).
                 # A reasoning preset needs its larger context here too.
@@ -124,7 +124,9 @@ def build_graph(sc: scope.Scope, guard: ToolGuard, model: ChatModel):
         out = []
         for call in state["messages"][-1]["tool_calls"]:
             fn = call.get("function", {})
+            # tool_call_id: OpenAI and Anthropic pair each result with its call.
             out.append({"role": "tool", "tool_name": fn.get("name", ""),
+                        "tool_call_id": call.get("id"),
                         "content": guard.run(fn.get("name", ""), fn.get("arguments"))})
         return {"messages": [*state["messages"], *out]}
 
@@ -200,4 +202,8 @@ def from_settings(settings: Settings, store, sc: scope.Scope, max_calls: int = 6
     load = facts_loader(lambda: edgar.EdgarClient(settings.sec_user_agent), ciks,
                         settings.data_dir / "facts")
     guard = build_guard(store, load, ciks, settings.top_k, settings.min_score, max_calls)
+    if settings.preset.provider != "ollama":
+        from finrag.providers import chat_model
+
+        return guard, chat_model(settings.preset, settings)
     return guard, OllamaChat(settings.ollama_url, settings.preset)

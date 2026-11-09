@@ -102,7 +102,8 @@ def cmd_eval(args, s) -> None:
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
     if "model" in report:
         m, lat, u = report["model"], report["latency_s"], report["usage"]
-        print(f"model {m['preset']} ({m['ollama_tag']} @{m['digest'][:12]}) on {m['gpu']}")
+        where = f"@{m['digest'][:12]} on {m['gpu']}" if m["digest"] else f"via {m['provider']}"
+        print(f"model {m['preset']} ({m['model_id']} {where})")
         print(f"latency mean {lat['mean']} s, p50 {lat['p50']} s, p95 {lat['p95']} s; "
               f"est. GPU cost {u['est_cost_usd_total']} USD for {u['llm_answers']} answers")
     for name, g in report["gates"].items():

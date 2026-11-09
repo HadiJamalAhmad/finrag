@@ -1,17 +1,18 @@
-"""MODEL_REGISTRY: a name -> a pinned model preset. JobHack's pattern, same three models.
+"""MODEL_REGISTRY: a name -> a model preset. JobHack's pattern, plus two hosted models.
 
-Adding a model is one line here (and its digest in deploy/models.lock); choosing one
-is one environment variable, `FINRAG_MODEL`, or the `model` field of an API request:
+Adding a model is one line here (an Ollama model also needs its digest in
+deploy/models.lock); choosing one is one environment variable, `FINRAG_MODEL`, the
+`--model` flag, or the `model` field of an API request:
 
-    FINRAG_MODEL = llama-3b | qwen3-4b | mistral-24b        (default: llama-3b)
+    FINRAG_MODEL = llama-3b | qwen3-4b | mistral-24b | gpt-luna | claude-haiku
 
-All three are open-weight models served by Ollama on our own GPU: no question, filing
-passage or answer leaves the infrastructure, and no per-token bill. A hosted model
-(GPT, Claude, Mistral's API) would be one more preset kind behind the same calls.
-
-Cost here is GPU time, not tokens: an answer costs the seconds the model spent on it
-times the GPU's hourly price. That is the marginal cost; idle time and cold starts are
-not included (the backend scales to zero when idle).
+Two kinds of preset behind the same calls (answer.generate, the agent's chat model):
+- provider "ollama": open weights on our own GPU, pinned by digest. No question or
+  filing passage leaves the infrastructure. Cost = model seconds x the GPU's price.
+- provider "openai" / "anthropic": hosted. The question and the retrieved passages
+  (public SEC text) go to the vendor, so these are opt-in and need the vendor's key.
+  A dated model ID is the provenance (there is no digest). Cost = tokens x list price.
+Both costs are marginal: idle time and cold starts are not included.
 """
 
 from __future__ import annotations
@@ -25,10 +26,16 @@ from pathlib import Path
 @dataclass(frozen=True)
 class ModelPreset:
     name: str
-    ollama_tag: str
-    # The digest, not the tag, is what eval reports record and the image build checks.
-    digest: str
+    model_id: str  # Ollama tag, or the vendor's model ID
+    # Ollama: the digest, not the tag, is what eval reports record and the image build
+    # checks. Hosted models have none (None).
+    digest: str | None
     label: str  # shown to users: vendor, model, size
+    provider: str = "ollama"  # ollama | openai | anthropic
+    # Hosted models: list price in USD per million (input, output) tokens.
+    usd_per_mtok: tuple[float, float] | None = None
+    # Hosted models: extra request fields, e.g. (("reasoning_effort", "none"),).
+    api_params: tuple[tuple[str, object], ...] = ()
     # Sent as Ollama's `think` when not None. See qwen3-4b below for why it is True there.
     think: bool | None = None
     # Context for the one-shot answer: 5 passages of ~300 words + prompt fit in 4k.
@@ -43,7 +50,7 @@ MODEL_REGISTRY: dict[str, ModelPreset] = {
     # The baseline: every number in the README up to Week 1 was measured with it.
     "llama-3b": ModelPreset(
         name="llama-3b",
-        ollama_tag="llama3.2:3b",
+        model_id="llama3.2:3b",
         digest="a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72",
         label="Meta Llama 3.2 3B",
     ),
@@ -54,7 +61,7 @@ MODEL_REGISTRY: dict[str, ModelPreset] = {
     # for the reasoning in both the context and the output budget.
     "qwen3-4b": ModelPreset(
         name="qwen3-4b",
-        ollama_tag="qwen3:4b",
+        model_id="qwen3:4b",
         digest="359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
         label="Alibaba Qwen3 4B",
         think=True,
@@ -64,12 +71,41 @@ MODEL_REGISTRY: dict[str, ModelPreset] = {
     # Mistral (Apache 2.0), ~15 GB at 4-bit: needs the 24 GB L4, not a 16 GB T4.
     "mistral-24b": ModelPreset(
         name="mistral-24b",
-        ollama_tag="mistral-small3.2:24b",
+        model_id="mistral-small3.2:24b",
         digest="5a408ab55df5c1b5cf46533c368813b30bf9e4d8fc39263bf2a3338cfa3b895b",
         label="Mistral Small 3.2 24B",
     ),
-    # <- ADD A MODEL AS ONE LINE HERE (and its digest in deploy/models.lock)
+    # Hosted, opt-in. Prices and IDs read on 2026-11-09 from the vendors' model pages
+    # (openai.com/api/pricing answered 403: OpenAI prices are from its model page).
+    # Neither gets `temperature`: Claude 5.5 rejects it ("omit temperature"), and the
+    # GPT-6 pages do not say. Re-check prices before quoting a cost.
+    # OpenAI's cost-efficient model. Function calling in Chat Completions requires
+    # reasoning_effort "none" (model page), which also keeps latency down.
+    "gpt-luna": ModelPreset(
+        name="gpt-luna",
+        model_id="gpt-6-luna",
+        digest=None,
+        label="OpenAI GPT-6 Luna",
+        provider="openai",
+        usd_per_mtok=(0.10, 0.50),
+        api_params=(("reasoning_effort", "none"),),
+        num_predict=4096,
+    ),
+    # Anthropic's fastest model, same list price as Luna (prompts under 100K tokens).
+    # Adaptive thinking may spend output tokens before the text: a larger cap.
+    "claude-haiku": ModelPreset(
+        name="claude-haiku",
+        model_id="claude-haiku-5-5",
+        digest=None,
+        label="Anthropic Claude Haiku 5.5",
+        provider="anthropic",
+        usd_per_mtok=(0.10, 0.50),
+        num_predict=4096,
+    ),
+    # <- ADD A MODEL AS ONE LINE HERE (Ollama: and its digest in deploy/models.lock)
 }
+# The presets on our own GPU (the image pulls them; the bake-off's default set).
+OLLAMA_MODELS = [n for n, p in MODEL_REGISTRY.items() if p.provider == "ollama"]
 DEFAULT_MODEL = "llama-3b"
 
 # Modal list prices in USD per GPU-hour, read on 2026-11-09 (modal.com/pricing).
@@ -88,7 +124,7 @@ def get(name: str | None = None) -> ModelPreset:
 
 
 def read_lock(path: Path = LOCK_PATH) -> dict[str, str]:
-    """deploy/models.lock as {ollama tag: digest}."""
+    """deploy/models.lock as {Ollama tag: digest}."""
     out = {}
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.split("#", 1)[0].strip()
@@ -100,7 +136,7 @@ def read_lock(path: Path = LOCK_PATH) -> dict[str, str]:
 
 @dataclass(frozen=True)
 class Usage:
-    """What one answer cost: tokens from Ollama's counters, seconds of model time."""
+    """What one answer cost: tokens from the provider's counters, seconds of model time."""
 
     model: str
     prompt_tokens: int = 0
@@ -121,12 +157,18 @@ class Usage:
                      self.seconds + other.seconds, self.calls + other.calls)
 
     def cost_usd(self, gpu: str) -> float:
+        """Hosted: tokens x list price. Ollama: model seconds x the GPU's hourly price."""
+        price = MODEL_REGISTRY[self.model].usd_per_mtok if self.model in MODEL_REGISTRY else None
+        if price:
+            return (self.prompt_tokens * price[0] + self.completion_tokens * price[1]) / 1e6
         return self.seconds * GPU_USD_PER_HOUR[gpu] / 3600
 
     def as_dict(self, gpu: str) -> dict:
+        hosted = self.model in MODEL_REGISTRY and MODEL_REGISTRY[self.model].usd_per_mtok
         return {"model": self.model, "prompt_tokens": self.prompt_tokens,
                 "completion_tokens": self.completion_tokens, "llm_calls": self.calls,
-                "llm_seconds": round(self.seconds, 2), "gpu": gpu,
+                "llm_seconds": round(self.seconds, 2), "gpu": None if hosted else gpu,
+                "pricing": "tokens" if hosted else "gpu-time",
                 "est_cost_usd": round(self.cost_usd(gpu), 6)}
 
 

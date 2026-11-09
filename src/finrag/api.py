@@ -8,7 +8,8 @@ from __future__ import annotations
 from dataclasses import asdict, replace
 from functools import lru_cache
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 from finrag.answer import answer
@@ -17,6 +18,15 @@ from finrag.config import get_settings
 from finrag.models import MODEL_REGISTRY
 
 app = FastAPI(title="finrag", version="0.1.0")
+
+
+@app.exception_handler(RuntimeError)
+async def not_configured(request: Request, exc: RuntimeError):
+    from finrag.providers import ProviderNotConfigured
+
+    if isinstance(exc, ProviderNotConfigured):  # a hosted model without its key
+        return JSONResponse({"detail": str(exc)}, status_code=503)
+    raise exc
 
 
 class Query(BaseModel):
@@ -49,8 +59,14 @@ def health() -> dict:
 def models() -> dict:
     s = get_settings()
     return {"default": s.model, "models": [
-        {"name": p.name, "label": p.label, "ollama_tag": p.ollama_tag, "digest": p.digest}
+        {"name": p.name, "label": p.label, "model_id": p.model_id, "digest": p.digest,
+         "provider": p.provider, "available": _available(p, s)}
         for p in MODEL_REGISTRY.values()]}
+
+
+def _available(p, s) -> bool:
+    return {"ollama": True, "openai": bool(s.openai_api_key),
+            "anthropic": bool(s.anthropic_api_key)}[p.provider]
 
 
 def _settings_for(q: Query):

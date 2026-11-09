@@ -88,8 +88,9 @@ def _cost_and_latency(settings, seconds: list[float], usages: list[dict]) -> dic
 
     total = sum(u["est_cost_usd"] for u in usages)
     return {
-        "model": {"preset": p.name, "label": p.label, "ollama_tag": p.ollama_tag,
-                  "digest": p.digest, "gpu": settings.gpu},
+        "model": {"preset": p.name, "label": p.label, "model_id": p.model_id,
+                  "provider": p.provider, "digest": p.digest,
+                  "gpu": settings.gpu if p.provider == "ollama" else None},
         # End-to-end per question (scope + retrieval + model + checks), refusals included.
         "latency_s": {"mean": round(mean(seconds), 2) if seconds else None,
                       "p50": pct(0.5), "p95": pct(0.95)},

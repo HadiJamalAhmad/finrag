@@ -41,6 +41,17 @@ class Settings:
     model: str = os.environ.get("FINRAG_MODEL", "llama-3b")
     # The GPU the model runs on, for the cost estimate (finrag.models.GPU_USD_PER_HOUR).
     gpu: str = os.environ.get("FINRAG_GPU", "L4")
+    # Hosted models (opt-in) and tracing. repr=False: a printed Settings never shows a key.
+    openai_api_key: str = field(default_factory=lambda: os.environ.get("OPENAI_API_KEY", ""),
+                                repr=False)
+    anthropic_api_key: str = field(
+        default_factory=lambda: os.environ.get("ANTHROPIC_API_KEY", ""), repr=False)
+    langfuse_public_key: str = field(
+        default_factory=lambda: os.environ.get("LANGFUSE_PUBLIC_KEY", ""), repr=False)
+    langfuse_secret_key: str = field(
+        default_factory=lambda: os.environ.get("LANGFUSE_SECRET_KEY", ""), repr=False)
+    # Langfuse Cloud, EU region (the owner's choice, 2026-11-09).
+    langfuse_host: str = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
     top_k: int = int(os.environ.get("FINRAG_TOP_K", "5"))
     # Below this cosine score the best passage is not treated as evidence.
     # 0.72: calibrated on eval/suites/seed.jsonl, real 10-Ks (2026-11-07). Lowest

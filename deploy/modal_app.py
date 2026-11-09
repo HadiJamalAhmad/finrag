@@ -131,7 +131,7 @@ def load_model(name: str) -> None:
     from finrag.models import get, ollama_options
 
     httpx.post(f"{OLLAMA}/api/generate", json={
-        "model": get(name).ollama_tag, "prompt": "", "keep_alive": -1,
+        "model": get(name).model_id, "prompt": "", "keep_alive": -1,
         **ollama_options(get(name))}, timeout=600).raise_for_status()
 
 
