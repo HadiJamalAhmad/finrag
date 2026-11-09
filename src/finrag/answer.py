@@ -13,7 +13,7 @@ import httpx
 
 from finrag import grounding, scope
 from finrag.config import Settings
-from finrag.models import Usage, strip_thinking
+from finrag.models import Usage, ollama_options, strip_thinking, unfinished
 
 REFUSAL = "I don't know based on the filings provided."
 
@@ -46,6 +46,8 @@ class Answer:
 class Generation:
     text: str
     usage: Usage
+    # Ollama's done_reason: "stop", or "length" when the answer hit num_predict.
+    done_reason: str | None = "stop"
 
 
 def build_prompt(question: str, hits: list[tuple[float, dict]]) -> str:
@@ -60,16 +62,16 @@ def cited_indices(text: str, n: int) -> list[int]:
 
 def generate(prompt: str, settings: Settings) -> Generation:
     preset = settings.preset
+    # num_ctx and num_predict always explicit, per preset (finrag.models): recent Ollama
+    # defaults to a huge context and tried to allocate a 12 GB KV cache on this machine.
     body = {"model": preset.ollama_tag, "prompt": prompt, "stream": False,
-            # num_ctx explicitly: recent Ollama defaults to a huge context and tried to
-            # allocate a 12 GB KV cache on this machine. 5 passages of ~300 words fit in 4k.
-            "options": {"temperature": 0, "num_ctx": 4096}}
-    if preset.thinks:
-        body["think"] = False  # a reasoning trace would cost seconds and context
+            **ollama_options(preset)}
     r = httpx.post(f"{settings.ollama_url}/api/generate", json=body, timeout=300.0)
     r.raise_for_status()
     data = r.json()
-    return Generation(strip_thinking(data["response"]), Usage.from_ollama(preset.name, data))
+    # With think=True the reasoning comes back in data["thinking"], never in the answer.
+    return Generation(strip_thinking(data["response"]), Usage.from_ollama(preset.name, data),
+                      data.get("done_reason"))
 
 
 def answer(question: str, sc: scope.Scope, store, settings: Settings, llm=generate) -> Answer:
@@ -88,8 +90,12 @@ def answer(question: str, sc: scope.Scope, store, settings: Settings, llm=genera
 
     out = llm(build_prompt(question, hits), settings)
     # A test double may return a plain string; the real generate() returns a Generation.
-    text, use = (out, None) if isinstance(out, str) else (out.text, out.usage)
+    text, use, done = ((out, None, "stop") if isinstance(out, str)
+                       else (out.text, out.usage, out.done_reason))
     usage = use.as_dict(settings.gpu) if use else None
+    problem = unfinished(text, done)
+    if problem:  # cut at the cap, empty, or reasoning that never ended: not an answer
+        return Answer(question, REFUSAL, True, "model", problem, sources, usage=usage)
     if REFUSAL.lower().rstrip(".") in text.lower():
         return Answer(question, REFUSAL, True, "model", "the model found no answer", sources,
                       usage=usage)

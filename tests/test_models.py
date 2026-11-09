@@ -61,8 +61,10 @@ def test_cost_is_model_seconds_times_the_gpu_price():
 
 
 # ---------------------------------------------------------------- generation
-@pytest.mark.parametrize("name,think", [("llama-3b", None), ("qwen3-4b", False)])
-def test_generate_uses_the_preset(monkeypatch, name, think):
+@pytest.mark.parametrize("name,think,ctx,cap", [("llama-3b", None, 4096, 1024),
+                                                ("mistral-24b", None, 4096, 1024),
+                                                ("qwen3-4b", True, 12288, 8192)])
+def test_generate_uses_the_preset(monkeypatch, name, think, ctx, cap):
     sent = {}
 
     def fake_post(url, json, timeout):
@@ -72,8 +74,10 @@ def test_generate_uses_the_preset(monkeypatch, name, think):
     monkeypatch.setattr(ans.httpx, "post", fake_post)
     g = ans.generate("prompt", replace(S, model=name))
     assert sent["model"] == models.get(name).ollama_tag
-    assert sent["options"]["num_ctx"] == 4096  # always explicit (CLAUDE.md)
-    assert sent.get("think") is think  # reasoning models: thinking off
+    assert sent["options"]["num_ctx"] == ctx  # always explicit (CLAUDE.md)
+    assert sent["options"]["num_predict"] == cap  # output cap: latency and cost bound
+    # qwen3:4b always reasons: think=True puts the reasoning in a separate field.
+    assert sent.get("think") is think
     assert g.text == "A single supplier in Taiwan [1]."  # a stray <think> block is dropped
     assert (g.usage.model, g.usage.prompt_tokens, g.usage.seconds) == (name, 900, 4.5)
 
@@ -107,8 +111,38 @@ def test_agent_chat_sums_usage_over_turns(monkeypatch):
     chat.chat([], [])
     reply = chat.chat([], [])
     assert reply["content"] == "Done [S1]."
-    assert all(b["think"] is False and b["options"]["num_ctx"] == 8192 for b in sent)
+    # The reasoning preset keeps its larger context (12288 > the agent's 8192).
+    assert all(b["think"] is True and b["options"]["num_ctx"] == 12288 for b in sent)
     assert (chat.usage.calls, chat.usage.prompt_tokens, chat.usage.seconds) == (2, 1300, 5.0)
+
+
+@pytest.mark.parametrize("gen,reason", [
+    (ans.Generation("A single supplier in Tai", models.Usage("llama-3b"), "length"),
+     "the answer was cut at the output limit"),
+    (ans.Generation("", models.Usage("qwen3-4b"), "stop"), "the model returned an empty answer"),
+    (ans.Generation("<think>still going", models.Usage("qwen3-4b"), "stop"),
+     "the model's reasoning never ended"),
+])
+def test_an_unfinished_answer_is_refused_at_the_model_stage(filing_10k, sec_names, gen, reason):
+    sc = scope.Scope.build([filing_10k], sec_names)
+    a = ans.answer("Who supplies Acme?", sc, FakeStore(), S, llm=lambda p, s: gen)
+    assert a.refused and a.stage == "model" and a.reason == reason
+    assert a.answer == ans.REFUSAL and a.usage is not None  # what it cost is still reported
+
+
+def test_a_cut_agent_message_becomes_no_answer(monkeypatch):
+    body = {"message": {"role": "assistant", "content": "Revenue grew by"},
+            "done_reason": "length", "prompt_eval_count": 1, "eval_count": 1024}
+    monkeypatch.setattr(agent.httpx, "post", lambda url, json, timeout: FakeResponse(body))
+    reply = agent.OllamaChat("http://ollama", models.get("llama-3b")).chat([], [])
+    assert reply["content"] == ""  # verify_node then refuses at the `model` stage
+
+
+def test_cost_uses_the_gpu_that_actually_ran():
+    assert models.detect_gpu("NVIDIA A10G") == "A10G"
+    assert models.detect_gpu("NVIDIA L4") == "L4"
+    with pytest.raises(ValueError, match="no price"):
+        models.detect_gpu("NVIDIA H100 80GB HBM3")
 
 
 # ---------------------------------------------------------------- eval report

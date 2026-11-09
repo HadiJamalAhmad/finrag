@@ -29,7 +29,14 @@ class ModelPreset:
     # The digest, not the tag, is what eval reports record and the image build checks.
     digest: str
     label: str  # shown to users: vendor, model, size
-    thinks: bool = False  # reasoning models: thinking is turned off (latency, num_ctx)
+    # Sent as Ollama's `think` when not None. See qwen3-4b below for why it is True there.
+    think: bool | None = None
+    # Context for the one-shot answer: 5 passages of ~300 words + prompt fit in 4k.
+    # Always explicit (CLAUDE.md): recent Ollama defaults to a context that exhausts memory.
+    num_ctx: int = 4096
+    # Output cap: bounds latency and GPU cost per answer. An answer that hits it is cut,
+    # and a cut answer is refused at the `model` stage, never shown half-written.
+    num_predict: int = 1024
 
 
 MODEL_REGISTRY: dict[str, ModelPreset] = {
@@ -40,13 +47,19 @@ MODEL_REGISTRY: dict[str, ModelPreset] = {
         digest="a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72",
         label="Meta Llama 3.2 3B",
     ),
-    # Same size class, stronger at tool calling. A reasoning model: thinking off.
+    # Same size class, stronger at tool calling. This build ALWAYS reasons (JobHack L84,
+    # and here on 2026-11-09: 6,891 output tokens for one answer, then a refusal). Asked
+    # not to think, it writes the reasoning into the answer; asked to think, Ollama
+    # returns it in a separate field and the answer is clean. So: think=True, and room
+    # for the reasoning in both the context and the output budget.
     "qwen3-4b": ModelPreset(
         name="qwen3-4b",
         ollama_tag="qwen3:4b",
         digest="359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
         label="Alibaba Qwen3 4B",
-        thinks=True,
+        think=True,
+        num_ctx=12288,
+        num_predict=8192,
     ),
     # Mistral (Apache 2.0), ~15 GB at 4-bit: needs the 24 GB L4, not a 16 GB T4.
     "mistral-24b": ModelPreset(
@@ -121,5 +134,33 @@ THINK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
 
 
 def strip_thinking(text: str) -> str:
-    """Drop a reasoning block if a model emits one despite think=false."""
+    """Drop a closed reasoning block if a model writes one into its answer."""
     return THINK_RE.sub("", text).strip()
+
+
+def ollama_options(preset: ModelPreset, num_ctx: int | None = None) -> dict:
+    """The generation fields every call sends: temperature 0, explicit context and cap."""
+    body = {"options": {"temperature": 0, "num_ctx": num_ctx or preset.num_ctx,
+                        "num_predict": preset.num_predict}}
+    if preset.think is not None:
+        body["think"] = preset.think
+    return body
+
+
+def unfinished(text: str, done_reason: str | None) -> str | None:
+    """Why an answer cannot be shown (cut at the cap, empty, reasoning never closed)."""
+    if done_reason == "length":
+        return "the answer was cut at the output limit"
+    if not text.strip():
+        return "the model returned an empty answer"
+    if "<think>" in text:
+        return "the model's reasoning never ended"
+    return None
+
+
+def detect_gpu(nvidia_name: str) -> str:
+    """'NVIDIA A10G' -> 'A10G': the price table key for the GPU that actually ran."""
+    for key in GPU_USD_PER_HOUR:
+        if key.lower() in nvidia_name.lower():
+            return key
+    raise ValueError(f"no price for GPU {nvidia_name!r}; add it to GPU_USD_PER_HOUR")

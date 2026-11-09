@@ -33,7 +33,7 @@ from langgraph.graph import END, START, StateGraph
 from finrag import grounding, scope
 from finrag.answer import REFUSAL, Answer
 from finrag.config import Settings
-from finrag.models import ModelPreset, Usage, strip_thinking
+from finrag.models import ModelPreset, Usage, ollama_options, strip_thinking, unfinished
 from finrag.tools import ToolGuard
 
 SYSTEM = """You are a financial analyst assistant. You answer questions about the SEC
@@ -68,17 +68,19 @@ class OllamaChat:
         body = {"model": self.preset.ollama_tag, "messages": messages, "tools": tools,
                 "stream": False,
                 # num_ctx explicitly, always: see CLAUDE.md (the default exhausts RAM here).
-                "options": {"temperature": 0, "num_ctx": self.num_ctx}}
-        if self.preset.thinks:
-            body["think"] = False
+                # A reasoning preset needs its larger context here too.
+                **ollama_options(self.preset, max(self.num_ctx, self.preset.num_ctx))}
         r = httpx.post(f"{self.url}/api/chat", json=body, timeout=300.0)
         r.raise_for_status()
         data = r.json()
         turn = Usage.from_ollama(self.preset.name, data)
         self.usage = turn if self.usage is None else self.usage + turn
-        msg = data["message"]
-        if msg.get("content"):
-            msg["content"] = strip_thinking(msg["content"])
+        # Only content and tool calls go back into the conversation: the reasoning
+        # (msg["thinking"] with think=True) would fill the context turn after turn.
+        msg = {k: v for k, v in data["message"].items() if k != "thinking"}
+        content = strip_thinking(msg.get("content") or "")
+        # A cut final message is no answer: verify refuses it at the `model` stage.
+        msg["content"] = "" if unfinished(content or "x", data.get("done_reason")) else content
         return msg
 
 
