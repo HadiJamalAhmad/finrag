@@ -211,3 +211,14 @@ def detect_gpu(nvidia_name: str) -> str:
         if key.lower() in nvidia_name.lower():
             return key
     raise ValueError(f"no price for GPU {nvidia_name!r}; add it to GPU_USD_PER_HOUR")
+
+
+def model_parameters(preset: ModelPreset) -> dict:
+    """What the generation was asked with, recorded on its Langfuse observation."""
+    if preset.provider == "ollama":
+        params = {"temperature": 0, "num_ctx": preset.num_ctx, "num_predict": preset.num_predict}
+        if preset.think is not None:
+            params["think"] = preset.think
+        return params
+    return {"max_output_tokens": preset.num_predict,
+            **{k: v for k, v in preset.api_params if isinstance(v, str | int | float | bool)}}

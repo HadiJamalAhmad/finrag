@@ -64,6 +64,7 @@ image = (
         "FINRAG_DATA": "/data",
         "OLLAMA_URL": OLLAMA,
         "FINRAG_MODEL": DEFAULT_MODEL,
+        "FINRAG_ENV": "production",  # Langfuse environment of live traces
         "OLLAMA_KEEP_ALIVE": "-1",
     })
     .run_commands(f"python -c \"from fastembed import TextEmbedding; TextEmbedding('{EMBED}')\"")
@@ -173,6 +174,9 @@ class Backend:
 
     @modal.exit()
     def stop(self) -> None:
+        from finrag.api import _tracer
+
+        _tracer().shutdown()  # flush the last traces before the container goes away
         self.ollama.terminate()
 
     @modal.asgi_app()
@@ -211,8 +215,10 @@ def run_suite(model: str, suite_jsonl: str, gpu: str) -> dict:
 
     s = replace(get_settings(), model=model, gpu=gpu)
     suite = [json.loads(ln) for ln in suite_jsonl.splitlines() if ln.strip()]
-    return evaluate.run(suite, _scope(s), Store(s), s, with_llm=True,
-                        tracer=Tracer.from_settings(s))
+    tracer = Tracer.from_settings(s, environment="eval")
+    report = evaluate.run(suite, _scope(s), Store(s), s, with_llm=True, tracer=tracer)
+    tracer.flush()  # the container ends with the function: send every trace and score
+    return report
 
 
 @app.function(image=image, gpu=GPUS, memory=32768, timeout=3600, volumes={VOL: VOLUME},

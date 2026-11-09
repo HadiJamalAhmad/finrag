@@ -5,6 +5,7 @@ Run: uv run uvicorn finrag.api:app --reload
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from dataclasses import asdict, replace
 from functools import lru_cache
 
@@ -17,7 +18,16 @@ from finrag.cli import _scope
 from finrag.config import get_settings
 from finrag.models import MODEL_REGISTRY
 
-app = FastAPI(title="finrag", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    # A long-running server: flush buffered traces and stop the exporter on shutdown.
+    if _tracer.cache_info().currsize:
+        _tracer().shutdown()
+
+
+app = FastAPI(title="finrag", version="0.1.0", lifespan=lifespan)
 
 
 @app.exception_handler(RuntimeError)

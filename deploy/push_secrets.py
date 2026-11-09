@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 NAMES = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY",
-         "LANGFUSE_HOST"]
+         "LANGFUSE_BASE_URL", "LANGFUSE_HOST"]
 ENV = Path(__file__).resolve().parents[1] / ".env"
 
 

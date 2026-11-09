@@ -163,6 +163,43 @@ The default stays `llama-3b`: best on this suite, cheapest, fastest. Mistral is 
 candidate to re-measure on the held-out Week 2 suite (and in the agent, where a 3B model
 struggles with multi-step tool use).
 
+## Tracing (Langfuse)
+
+Every question becomes one Langfuse trace, sent by the official Python SDK
+(`langfuse` 5.2, OpenTelemetry), following the Langfuse skill (github.com/langfuse/skills)
+and Langfuse's observability best practices. The first version posted raw events to
+`/api/public/ingestion`, which Langfuse Cloud stops accepting for traces on 2026-11-16.
+
+```
+answer-question      chain        input: question          output: answer / refusal + stage
+  check-scope        guardrail    WARNING when it refuses
+  retrieve-passages  retriever    the exact passages (text + scores) the model will see
+  check-evidence     guardrail    best score vs min_score
+  generate-answer    generation   messages, model, parameters, tokens, cost, reasoning
+  check-figures      guardrail    grounded? ungrounded figures
+
+answer-with-tools    agent        one generation per model turn; each tool call a `tool`
+  generate-response  generation   sibling of the generation that asked for it, with its
+  get-financial-fact tool         tool_call_id; refused calls are WARNING; verify-answer last
+```
+
+- **Names are stable and verb-first** (dashboards and evaluators key on them); dynamic
+  values go to metadata.
+- **Tags at creation** (immutable): `finrag`, `pipeline` or `agent`, the model preset.
+  **Scores for what is known only at the end**: `outcome` (the deciding stage), `refused`,
+  and `correct` on eval traces.
+- **Environments**: `development` (local), `production` (Modal), `eval` (bake-offs and
+  `finrag eval`), so test traffic never pollutes live dashboards.
+- **Cost**: Langfuse cannot price a self-hosted model, so every generation carries our
+  estimate (GPU seconds x price, or tokens x list price for GPT and Claude).
+- **Flushed** before every short-lived process exits (CLI, eval, bake-off) and on server
+  shutdown (FastAPI lifespan, Modal exit hook). Without keys, tracing is off: no client.
+- **Tests stay offline**: the real SDK exports to an in-memory OpenTelemetry exporter and
+  its HTTP calls go to a mock (`tests/test_tracing.py`).
+
+Setup: `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` in `.env` (project in Langfuse
+Cloud EU), then `uv run python deploy/push_secrets.py` for Modal.
+
 ## Evaluation
 
 `eval/suites/seed.jsonl`: 20 cases to start (12 answerable, 8 unanswerable). An

@@ -37,14 +37,22 @@ def run(suite: list[dict], sc, store, settings, llm=None, with_llm: bool = True,
             rec.append(metrics.recall_at_k(retrieved, case["gold"], 5))
             rr.append(metrics.reciprocal_rank(retrieved, case["gold"]))
         kwargs = {"llm": llm} if llm else {}
-        if tracer:  # each case becomes a trace tagged "eval", filterable per model
-            kwargs["tracer"] = _EvalTracer(tracer, case["id"])
+        if tracer:  # each case: a trace in the "eval" environment, never mixed with live use
+            kwargs["tracer"] = tracer
+            kwargs["trace_context"] = {"tags": ["eval"], "environment": "eval",
+                                       "metadata": {"case": case["id"],
+                                                    "answerable": case["answerable"]}}
         extra = {}
         if with_llm:
             t0 = time.perf_counter()
             a = answer(case["question"], sc, store, settings, **kwargs)
             dt = time.perf_counter() - t0
             refused, stage = a.refused, a.stage
+            if tracer and a.trace_id:
+                # Correct = answered when answerable, refused when not: the eval's own label.
+                tracer.score_trace(a.trace_id, "correct",
+                                   1 if refused != case["answerable"] else 0, "BOOLEAN",
+                                   comment=f"case {case['id']}: {stage}")
             seconds.append(dt)
             extra = {"seconds": round(dt, 2)}
             if a.usage:
@@ -79,17 +87,6 @@ def run(suite: list[dict], sc, store, settings, llm=None, with_llm: bool = True,
     report["cases"] = cases
     report["gates"] = {name: _gate(report.get(name), op, t) for name, (op, t) in GATES.items()}
     return report
-
-
-class _EvalTracer:
-    """Tags a case's trace with "eval" and its id, so eval runs never mix with live use."""
-
-    def __init__(self, tracer, case_id: str):
-        self.tracer, self.case_id = tracer, case_id
-
-    def trace(self, name, input, tags=(), metadata=None):
-        return self.tracer.trace(f"eval:{name}", input, [*tags, "eval", self.case_id],
-                                 {**(metadata or {}), "case": self.case_id})
 
 
 def _cost_and_latency(settings, seconds: list[float], usages: list[dict]) -> dict:

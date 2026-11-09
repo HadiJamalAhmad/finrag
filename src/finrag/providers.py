@@ -80,9 +80,11 @@ def _to_openai(messages: list[dict]) -> list[dict]:
 class OpenAIChat:
     def __init__(self, preset: ModelPreset, key: str):
         self.preset, self.key, self.usage = preset, key, None
+        self.last_usage, self.last_reasoning = None, None  # the latest turn, for its trace
 
     def chat(self, messages: list[dict], tools: list[dict]) -> dict:
         msg, turn, done = _openai_call(self.preset, self.key, _to_openai(messages), tools)
+        self.last_usage, self.last_reasoning = turn, None
         self.usage = turn if self.usage is None else self.usage + turn
         calls = [{"id": c["id"], "function": {"name": c["function"]["name"],
                                               "arguments": c["function"].get("arguments")}}
@@ -113,6 +115,11 @@ def _anthropic_call(preset: ModelPreset, key: str, messages: list[dict], system:
                   int(u.get("output_tokens") or 0), time.perf_counter() - t0, 1)
     done = "length" if data.get("stop_reason") == "max_tokens" else "stop"
     return data.get("content") or [], usage, done
+
+
+def _reasoning(blocks: list[dict]) -> str | None:
+    return "\n".join(b.get("thinking", "") for b in blocks
+                     if b.get("type") == "thinking").strip() or None
 
 
 def _text(blocks: list[dict]) -> str:
@@ -148,10 +155,12 @@ def _to_anthropic(messages: list[dict]) -> tuple[str, list[dict]]:
 class AnthropicChat:
     def __init__(self, preset: ModelPreset, key: str):
         self.preset, self.key, self.usage = preset, key, None
+        self.last_usage, self.last_reasoning = None, None  # the latest turn, for its trace
 
     def chat(self, messages: list[dict], tools: list[dict]) -> dict:
         system, msgs = _to_anthropic(messages)
         blocks, turn, done = _anthropic_call(self.preset, self.key, msgs, system, tools)
+        self.last_usage, self.last_reasoning = turn, _reasoning(blocks)
         self.usage = turn if self.usage is None else self.usage + turn
         calls = [{"id": b["id"], "function": {"name": b["name"], "arguments": b.get("input")}}
                  for b in blocks if b.get("type") == "tool_use"]
@@ -161,15 +170,17 @@ class AnthropicChat:
 
 
 # ---------------------------------------------------------------- one-shot answer
-def generate_hosted(prompt: str, preset: ModelPreset, settings) -> tuple[str, Usage, str | None]:
+def generate_hosted(prompt: str, preset: ModelPreset,
+                    settings) -> tuple[str, Usage, str | None, str | None]:
+    """(answer, usage, done_reason, reasoning)."""
     key = api_key(preset, settings)
     user = [{"role": "user", "content": prompt}]
     if preset.provider == "openai":
         msg, usage, done = _openai_call(preset, key, user)
-        return (msg.get("content") or "").strip(), usage, done
+        return (msg.get("content") or "").strip(), usage, done, None
     if preset.provider == "anthropic":
         blocks, usage, done = _anthropic_call(preset, key, user)
-        return _text(blocks), usage, done
+        return _text(blocks), usage, done, _reasoning(blocks)
     raise ValueError(f"not a hosted provider: {preset.provider!r}")
 
 

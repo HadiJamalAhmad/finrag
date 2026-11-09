@@ -62,7 +62,9 @@ def cmd_ask(args, s) -> None:
     from finrag.store import Store
     from finrag.tracing import Tracer
 
-    a = answer(args.question, _scope(s), Store(s), s, tracer=Tracer.from_settings(s))
+    tracer = Tracer.from_settings(s)
+    a = answer(args.question, _scope(s), Store(s), s, tracer=tracer)
+    tracer.flush()  # a short-lived process: send the trace before exiting
     print(a.answer)
     print(f"\n[{a.stage}] {a.reason}")
     _print_usage(a.usage)
@@ -76,12 +78,13 @@ def cmd_ask(args, s) -> None:
 def cmd_agent(args, s) -> None:
     from finrag import agent
     from finrag.store import Store
+    from finrag.tracing import Tracer
 
     sc = _scope(s)
     guard, model = agent.from_settings(s, Store(s), sc, args.max_calls)
-    from finrag.tracing import Tracer
-
-    a = agent.traced_run(args.question, sc, guard, model, s, Tracer.from_settings(s))
+    tracer = Tracer.from_settings(s)
+    a = agent.traced_run(args.question, sc, guard, model, s, tracer)
+    tracer.flush()
     print(a.answer)
     print(f"\n[{a.stage}] {a.reason}")
     _print_usage(a.usage)
@@ -97,9 +100,14 @@ def cmd_agent(args, s) -> None:
 def cmd_eval(args, s) -> None:
     from finrag import evaluate
     from finrag.store import Store
+    from finrag.tracing import Tracer
 
+    # Retrieval-only runs never call the model: nothing worth a trace.
+    tracer = Tracer.from_settings(s) if not args.retrieval_only else None
     report = evaluate.run(evaluate.load_suite(Path(args.suite)), _scope(s), Store(s), s,
-                          with_llm=not args.retrieval_only)
+                          with_llm=not args.retrieval_only, tracer=tracer)
+    if tracer:
+        tracer.flush()
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")

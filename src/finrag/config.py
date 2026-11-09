@@ -50,8 +50,12 @@ class Settings:
         default_factory=lambda: os.environ.get("LANGFUSE_PUBLIC_KEY", ""), repr=False)
     langfuse_secret_key: str = field(
         default_factory=lambda: os.environ.get("LANGFUSE_SECRET_KEY", ""), repr=False)
-    # Langfuse Cloud, EU region (the owner's choice, 2026-11-09).
-    langfuse_host: str = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+    # Langfuse Cloud, EU region (the owner's choice, 2026-11-09). The SDK's name is
+    # LANGFUSE_BASE_URL; LANGFUSE_HOST is accepted too.
+    langfuse_base_url: str = (os.environ.get("LANGFUSE_BASE_URL")
+                              or os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com"))
+    # Separates traces in Langfuse: development (here), production (Modal), eval.
+    environment: str = os.environ.get("FINRAG_ENV", "development")
     top_k: int = int(os.environ.get("FINRAG_TOP_K", "5"))
     # Below this cosine score the best passage is not treated as evidence.
     # 0.72: calibrated on eval/suites/seed.jsonl, real 10-Ks (2026-11-07). Lowest
