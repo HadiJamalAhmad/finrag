@@ -28,7 +28,8 @@ def sec_names() -> dict:
 # config.py loads the developer's .env at import. Tests stay offline (CLAUDE.md): no
 # Settings built inside a test may carry a real provider or tracing key.
 LIVE_KEYS = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "LANGFUSE_PUBLIC_KEY",
-             "LANGFUSE_SECRET_KEY"]
+             "LANGFUSE_SECRET_KEY", "CLERK_SECRET_KEY", "CLERK_PUBLISHABLE_KEY",
+             "FINRAG_INGEST_KEY"]
 
 
 @pytest.fixture(autouse=True)

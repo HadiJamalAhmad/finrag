@@ -54,6 +54,12 @@ class Settings:
     # LANGFUSE_BASE_URL; LANGFUSE_HOST is accepted too.
     langfuse_base_url: str = (os.environ.get("LANGFUSE_BASE_URL")
                               or os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com"))
+    # Sign-in (Clerk): the session token is verified here; groups come from Clerk.
+    clerk_publishable_key: str = os.environ.get("CLERK_PUBLISHABLE_KEY", "")
+    clerk_secret_key: str = field(default_factory=lambda: os.environ.get("CLERK_SECRET_KEY", ""),
+                                  repr=False)
+    # Origins allowed to obtain the tokens we accept (Clerk's `azp` claim).
+    site_origins: str = os.environ.get("FINRAG_SITE_ORIGINS", "https://finrag-ten.vercel.app")
     # Separates traces in Langfuse: development (here), production (Modal), eval.
     environment: str = os.environ.get("FINRAG_ENV", "development")
     top_k: int = int(os.environ.get("FINRAG_TOP_K", "5"))

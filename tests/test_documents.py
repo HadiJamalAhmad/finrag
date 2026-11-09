@@ -114,12 +114,24 @@ def test_a_document_must_say_who_may_read_it(client, monkeypatch, bad):
     assert r.status_code == 422  # nothing becomes public by omission
 
 
-def test_the_users_groups_reach_retrieval(client):
+def test_the_users_groups_reach_retrieval(client, monkeypatch):
+    from finrag.auth import Identity
+
     c, store = client
-    c.post("/query", json={"question": "Who supplies Acme?", "groups": ["risques"]})
+
+    class StubAuth:  # the verified identity (finrag.auth, tested in test_auth.py)
+        def identify(self, authorization):
+            return Identity("user_1", ("risques",))
+
+    monkeypatch.setattr(api, "_auth", lambda: StubAuth())
+    c.post("/query", json={"question": "Who supplies Acme?"},
+           headers={"authorization": "Bearer t"})
     assert store.calls[-1] == {"groups": frozenset({"risques"})}
     c.post("/query", json={"question": "Who supplies Acme?"})
-    assert store.calls[-1] == {}  # no identity: the store's default, public only
+    assert store.calls[-1] == {}  # no token: the store's default, public only
+    # Groups in the body are not a thing any more: identity comes from the token only.
+    c.post("/query", json={"question": "Who supplies Acme?", "groups": ["risques"]})
+    assert store.calls[-1] == {}
 
 
 def test_the_agent_reads_only_what_its_user_may_read():
