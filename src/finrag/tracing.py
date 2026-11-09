@@ -130,13 +130,22 @@ class Tracer:
             yield NULL
             return
         from langfuse import propagate_attributes
+        from opentelemetry import context as otel_context
 
         channel = [self.channel] if self.channel else []
-        with propagate_attributes(tags=["finrag", *channel, *tags], trace_name=name,
-                                  environment=environment or self.environment):
-            with self.client.start_as_current_observation(
-                    name=name, as_type=as_type, input=input, metadata=metadata) as obs:
-                yield Observation(obs)
+        # An empty OpenTelemetry context: finrag's root has no parent and starts its own
+        # trace. Seen in production (2026-11-09): with a foreign span active (runtime or a
+        # library), roots nested under it; the export filter dropped that span, leaving
+        # each root orphaned in a borrowed trace id.
+        token = otel_context.attach(otel_context.Context())
+        try:
+            with propagate_attributes(tags=["finrag", *channel, *tags], trace_name=name,
+                                      environment=environment or self.environment):
+                with self.client.start_as_current_observation(
+                        name=name, as_type=as_type, input=input, metadata=metadata) as obs:
+                    yield Observation(obs)
+        finally:
+            otel_context.detach(token)
 
     def score_trace(self, trace_id: str, name: str, value, data_type: str,
                     comment: str | None = None) -> None:

@@ -205,3 +205,16 @@ def test_agent_trace_one_generation_per_turn_tools_as_siblings(sc):
     out = attr(by_name(spans, "generate-response")[0], "observation.output")
     assert json.loads(out["tool_calls"][0]["function"]["arguments"])["ticker"] == "ACME"
     assert cap.scores()["outcome"]["value"] == a.stage
+
+
+def test_the_root_never_attaches_to_an_ambient_opentelemetry_span(sc):
+    # Production 2026-11-09: a foreign span (runtime / library) was active; the root nested
+    # under it, the export filter dropped it, and the trace was orphaned and borrowed.
+    cap = Capture()
+    ambient = TracerProvider().get_tracer("some-library")
+    with ambient.start_as_current_span("ambient-request") as outer:
+        ans.answer("Who supplies Acme?", sc, FakeStore(), S, llm=lambda p, s: GEN,
+                   tracer=cap.tracer)
+    root = by_name(cap.spans(), "answer-question")[0]
+    assert root.parent is None
+    assert root.context.trace_id != outer.get_span_context().trace_id
