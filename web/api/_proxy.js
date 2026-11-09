@@ -17,12 +17,6 @@ export async function forward(req, res, path) {
   if (model !== undefined && !/^[a-z0-9.-]{1,40}$/.test(model)) {
     return res.status(400).json({ detail: "invalid model name" });
   }
-  // Identity (SIMULATED for the demo; in production the SSO gateway sets the groups and
-  // the browser never can): the page only picks a profile, the groups are decided here.
-  const PROFILES = { public: undefined, agence: ["agence"], risques: ["risques"] };
-  const profile = typeof req.body?.profile === "string" ? req.body.profile : "public";
-  if (!(profile in PROFILES)) return res.status(400).json({ detail: "unknown profile" });
-  const groups = PROFILES[profile];
   const base = process.env.FINRAG_BACKEND_URL;
   const key = process.env.FINRAG_API_KEY;
   if (!base || !key) {
@@ -31,8 +25,13 @@ export async function forward(req, res, path) {
   try {
     const upstream = await fetch(`${base.replace(/\/$/, "")}${path}`, {
       method: "POST",
-      headers: { "content-type": "application/json", "x-api-key": key },
-      body: JSON.stringify({ question, ...(model ? { model } : {}), ...(groups ? { groups } : {}) }),
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        // Who asks: the user's Clerk session token, verified by the backend (finrag.auth).
+        ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
+      },
+      body: JSON.stringify({ question, ...(model ? { model } : {}) }),
       signal: AbortSignal.timeout(290_000),
     });
     const text = await upstream.text();

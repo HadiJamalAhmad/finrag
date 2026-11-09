@@ -105,7 +105,8 @@ def _validated(question: str, model: str | None):
 def _run(q, mode: Mode) -> Answer:
     from finrag import api
 
-    return _to_answer(api.agent_query(q) if mode is Mode.AGENT else api.query(q))
+    # Anonymous through GraphQL for now: public documents only (who=None).
+    return _to_answer(api.agent_query(q, None) if mode is Mode.AGENT else api.query(q, None))
 
 
 @strawberry.type

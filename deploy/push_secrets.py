@@ -14,7 +14,9 @@ import sys
 from pathlib import Path
 
 NAMES = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY",
-         "LANGFUSE_BASE_URL", "LANGFUSE_HOST"]
+         "LANGFUSE_BASE_URL", "LANGFUSE_HOST",
+         # Sign-in: the backend verifies Clerk session tokens and reads users' groups.
+         "CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY"]
 ENV = Path(__file__).resolve().parents[1] / ".env"
 
 

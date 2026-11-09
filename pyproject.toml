@@ -16,6 +16,7 @@ dependencies = [
     "langgraph>=0.2",
     "langfuse>=5.2.0,<6",
     "strawberry-graphql[fastapi]>=0.341,<0.342",
+    "pyjwt[crypto]>=2.15,<3",
 ]
 
 [project.optional-dependencies]

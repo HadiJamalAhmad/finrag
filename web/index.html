@@ -23,6 +23,10 @@
   }
   main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
   h1 { font-size: 1.6rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .auth { display: flex; align-items: center; gap: 10px; }
+  .who { color: var(--muted); font-size: 0.88rem; }
+  #signin { margin: 0; padding: 6px 14px; font-size: 0.9rem; }
   .lede { color: var(--muted); margin: 0 0 24px; }
   form { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
   textarea {
@@ -71,7 +75,16 @@
 </head>
 <body>
 <main>
-  <h1>finrag</h1>
+  <div class="top">
+    <h1>finrag</h1>
+    <!-- Sign-in (Clerk). Optional: signed out, the public SEC filings; signed in, also the
+         internal documents your groups allow. Groups are set in Clerk by an admin. -->
+    <div class="auth" id="auth" hidden>
+      <span id="who" class="who"></span>
+      <div id="user-button"></div>
+      <button id="signin" type="button" hidden>Sign in</button>
+    </div>
+  </div>
   <p class="lede">Ask about the latest 10-K of Apple, Microsoft, NVIDIA or JPMorgan Chase.
     Every answer cites its filing section, every figure is checked against the cited text,
     and a refusal says which step refused.</p>
@@ -91,13 +104,6 @@
           <option value="mistral-24b">Mistral Small 3.2 24B</option>
           <option value="gpt-luna">OpenAI GPT-6 Luna (hosted)</option>
           <option value="claude-haiku">Claude Haiku 5.5 (hosted)</option>
-        </select>
-      </label>
-      <label class="modes" title="Simulated for the demo: in production the bank's SSO decides">Identity
-        <select id="profile" aria-label="Identity (simulated SSO)">
-          <option value="public">No identity (public filings)</option>
-          <option value="agence">Branch staff (group: agence)</option>
-          <option value="risques">Risk department (group: risques)</option>
         </select>
       </label>
       <button id="go" type="submit">Ask</button>
@@ -125,6 +131,63 @@
 </main>
 <script>
   const $ = (s) => document.querySelector(s);
+
+  // ---- Sign-in (Clerk, loaded from its CDN as in Clerk's script-tag quickstart) --------
+  // The publishable key comes from /api/config (public by design). Without it, the page
+  // simply works signed out. The backend verifies every token and reads the groups from
+  // Clerk: nothing the browser says about itself is trusted.
+  let clerkReady = null;
+
+  async function authHeader() {
+    if (!window.Clerk || !window.Clerk.session) return {};
+    const t = await window.Clerk.session.getToken();  // one-minute token, refreshed by Clerk
+    return t ? { authorization: `Bearer ${t}` } : {};
+  }
+
+  function loadScript(src, attrs = {}) {
+    return new Promise((ok, fail) => {
+      const s = document.createElement("script");
+      s.src = src; s.crossOrigin = "anonymous"; s.async = true;
+      for (const [k, v] of Object.entries(attrs)) s.setAttribute(k, v);
+      s.onload = ok; s.onerror = () => fail(new Error(`could not load ${src}`));
+      document.head.append(s);
+    });
+  }
+
+  async function renderAuth() {
+    const C = window.Clerk;
+    $("#auth").hidden = false;
+    const ub = $("#user-button");
+    if (C.isSignedIn) {
+      $("#signin").hidden = true;
+      if (!ub.hasChildNodes()) C.mountUserButton(ub);
+      const me = await fetch("/api/me", { headers: await authHeader() })
+        .then((r) => r.json()).catch(() => ({}));
+      const groups = (me.groups || []).join(", ");
+      $("#who").textContent = me.signed_in
+        ? (groups ? `Groups: ${groups}` : "Signed in · no group: public filings only")
+        : "";
+    } else {
+      if (ub.hasChildNodes()) C.unmountUserButton(ub);
+      $("#who").textContent = "Signed out: public filings only";
+      $("#signin").hidden = false;
+    }
+  }
+
+  async function initClerk() {
+    const cfg = await fetch("/api/config").then((r) => r.json()).catch(() => ({}));
+    const pk = cfg.clerkPublishableKey;
+    if (!pk) return;  // sign-in not configured: signed-out mode only
+    const fapi = atob(pk.split("_")[2]).slice(0, -1);  // pk_<env>_<base64(host + "$")>
+    await loadScript(`https://${fapi}/npm/@clerk/ui@1/dist/ui.browser.js`);
+    await loadScript(`https://${fapi}/npm/@clerk/clerk-js@6/dist/clerk.browser.js`,
+                     { "data-clerk-publishable-key": pk });
+    await window.Clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
+    $("#signin").addEventListener("click", () => window.Clerk.openSignIn());
+    window.Clerk.addListener(() => renderAuth());
+    await renderAuth();
+  }
+  clerkReady = initClerk().catch((err) => console.warn("sign-in unavailable:", err));
   const el = (tag, attrs = {}, text) => {
     const n = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
@@ -160,8 +223,8 @@
     try {
       const r = await fetch(`/api/${mode}`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question, model, profile: $("#profile").value }),
+        headers: { "content-type": "application/json", ...(await authHeader()) },
+        body: JSON.stringify({ question, model }),
       });
       const data = await r.json().catch(() => ({ detail: `HTTP ${r.status}` }));
       if (!r.ok) throw new Error(data.detail ? JSON.stringify(data.detail) : `HTTP ${r.status}`);

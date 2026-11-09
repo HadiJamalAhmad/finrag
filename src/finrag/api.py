@@ -1,10 +1,14 @@
-"""HTTP API: POST /query, POST /agent, POST /documents, GET /models, GET /health.
+"""HTTP API: POST /query, POST /agent, POST /documents, GET /me, GET /models, GET /health.
 
 Run: uv run uvicorn finrag.api:app --reload
 
 Two credentials, two rights: asking (x-api-key, checked by the deployment, Modal) and
 pushing documents (x-ingest-key, checked here). A connector that feeds the index cannot
 read answers with its key, and a client that asks cannot write into the index.
+
+Who asks is a third thing: a Clerk session token (Authorization: Bearer), verified in
+finrag.auth; the user's groups come from Clerk, never from the request body. No token:
+public documents only. A bad token: 401.
 """
 
 from __future__ import annotations
@@ -16,7 +20,7 @@ from dataclasses import asdict, replace
 from datetime import date
 from functools import lru_cache
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
@@ -61,15 +65,6 @@ class Query(BaseModel):
     question: str = Field(min_length=3, max_length=500)
     # A preset from finrag.models (GET /models). None: the server default (FINRAG_MODEL).
     model: str | None = None
-    # The user's groups, set by the SSO gateway in production (never by the end user).
-    # None: no identity, public documents only.
-    groups: list[str] | None = Field(default=None, max_length=10)
-
-    @field_validator("groups")
-    @classmethod
-    def group_names(cls, v: list[str] | None) -> list[str] | None:
-        return _check_groups(v)
-
     @field_validator("model")
     @classmethod
     def known_model(cls, v: str | None) -> str | None:
@@ -91,6 +86,33 @@ def _tracer():
     from finrag.tracing import Tracer
 
     return Tracer.from_settings(get_settings(), channel="api")  # no-op without keys
+
+
+@lru_cache(maxsize=1)
+def _auth():
+    """ClerkAuth when the server has Clerk keys, else None (sign-in off)."""
+    from finrag.auth import ClerkAuth
+
+    s = get_settings()
+    if not (s.clerk_publishable_key and s.clerk_secret_key):
+        return None
+    origins = tuple(o.strip() for o in s.site_origins.split(",") if o.strip())
+    return ClerkAuth(s.clerk_publishable_key, s.clerk_secret_key, origins)
+
+
+def identify(authorization: str = Header(default="")):
+    """The request's Identity (user, groups), None without a token, 401 for a bad one."""
+    from finrag.auth import AuthError
+
+    if not authorization:
+        return None
+    auth = _auth()
+    if auth is None:
+        raise HTTPException(401, "sign-in is not enabled on this server")
+    try:
+        return auth.identify(authorization)
+    except AuthError as exc:
+        raise HTTPException(401, str(exc)) from None
 
 
 @app.get("/health")
@@ -117,20 +139,32 @@ def _settings_for(q: Query):
     return (replace(s, model=q.model) if q.model else s), sc, store
 
 
+def _groups(who) -> list[str] | None:
+    return list(who.groups) if who else None
+
+
+@app.get("/me")
+def me(who=Depends(identify)) -> dict:
+    """Who the server thinks is asking, and what that unlocks."""
+    if who is None:
+        return {"signed_in": False, "groups": []}
+    return {"signed_in": True, "user_id": who.user_id, "groups": list(who.groups)}
+
+
 @app.post("/query")
-def query(q: Query) -> dict:
+def query(q: Query, who=Depends(identify)) -> dict:
     s, sc, store = _settings_for(q)
-    return asdict(answer(q.question, sc, store, s, tracer=_tracer(), groups=q.groups))
+    return asdict(answer(q.question, sc, store, s, tracer=_tracer(), groups=_groups(who)))
 
 
 @app.post("/agent")
-def agent_query(q: Query) -> dict:
+def agent_query(q: Query, who=Depends(identify)) -> dict:
     """Answer with tools. The response includes the audit log of every tool call."""
     from finrag import agent
 
     s, sc, store = _settings_for(q)
     # A fresh guard per question; its search reads only what this user may read.
-    guard, model = agent.from_settings(s, store, sc, groups=q.groups)
+    guard, model = agent.from_settings(s, store, sc, groups=_groups(who))
     return asdict(agent.traced_run(q.question, sc, guard, model, s, _tracer()))
 
 
