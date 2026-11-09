@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>finrag</title>
+<meta name="description" content="Answers from SEC 10-K filings, with citations, staged refusals and numeric grounding.">
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --ink: #1c1c1a; --muted: #6b6b66; --line: #e2e2dc;
+    --accent: #1f5f8b; --ok: #2f7d4f; --refuse: #9a5b13; --code: #f0f0ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141413; --panel: #1d1d1b; --ink: #ecebe6; --muted: #a2a19a; --line: #33332f;
+      --accent: #7fb6dc; --ok: #7cc79a; --refuse: #e0a35c; --code: #262624;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); margin: 0 0 24px; }
+  form { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  textarea {
+    width: 100%; min-height: 84px; resize: vertical; padding: 10px 12px; font: inherit;
+    color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 12px; }
+  .modes { display: flex; gap: 14px; color: var(--muted); font-size: 0.93rem; }
+  .modes label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  button {
+    margin-left: auto; padding: 9px 18px; font: inherit; font-weight: 600; cursor: pointer;
+    color: #fff; background: var(--accent); border: 0; border-radius: 8px;
+  }
+  button:disabled { opacity: 0.55; cursor: wait; }
+  .examples { margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .examples button {
+    margin: 0; padding: 5px 10px; font-weight: 400; font-size: 0.85rem;
+    color: var(--ink); background: var(--code); border: 1px solid var(--line);
+  }
+  #status { color: var(--muted); font-size: 0.93rem; margin: 18px 2px 0; min-height: 1.4em; }
+  #result { margin-top: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .badge {
+    display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 2px 8px;
+    border-radius: 999px; border: 1px solid currentColor; margin-bottom: 10px;
+  }
+  .badge.ok { color: var(--ok); } .badge.refuse { color: var(--refuse); }
+  .answer { white-space: pre-wrap; margin: 0 0 6px; }
+  .reason { color: var(--muted); font-size: 0.9rem; margin: 0; }
+  h2 { font-size: 0.95rem; margin: 18px 0 8px; }
+  ol.sources { margin: 0; padding-left: 22px; font-size: 0.92rem; }
+  ol.sources li { margin-bottom: 4px; }
+  a { color: var(--accent); }
+  .score { color: var(--muted); font-variant-numeric: tabular-nums; }
+  pre {
+    background: var(--code); border-radius: 8px; padding: 10px; overflow-x: auto;
+    font-size: 0.8rem; margin: 0;
+  }
+  footer { color: var(--muted); font-size: 0.85rem; margin-top: 32px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>finrag</h1>
+  <p class="lede">Ask about the latest 10-K of Apple, Microsoft, NVIDIA or JPMorgan Chase.
+    Every answer cites its filing section, every figure is checked against the cited text,
+    and a refusal says which step refused.</p>
+
+  <form id="ask">
+    <textarea id="q" maxlength="500" required minlength="3"
+      placeholder="What risks does Apple describe about its suppliers?"></textarea>
+    <div class="row">
+      <div class="modes" role="radiogroup" aria-label="Mode">
+        <label><input type="radio" name="mode" value="query" checked> Pipeline</label>
+        <label><input type="radio" name="mode" value="agent"> Agent (tools)</label>
+      </div>
+      <button id="go" type="submit">Ask</button>
+    </div>
+    <div class="examples" aria-label="Examples">
+      <button type="button">How does JPMorgan Chase measure and manage market risk?</button>
+      <button type="button">What does NVIDIA say about U.S. export controls?</button>
+      <button type="button">What was Tesla's total revenue last year?</button>
+    </div>
+  </form>
+
+  <p id="status" aria-live="polite"></p>
+  <div id="result"></div>
+
+  <footer>
+    Source: SEC EDGAR. Model: llama3.2:3b on a GPU that sleeps when idle, so the first
+    question after a pause can take about a minute. Not investment advice.
+  </footer>
+</main>
+<script>
+  const $ = (s) => document.querySelector(s);
+  const el = (tag, attrs = {}, text) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    if (text !== undefined) n.textContent = text;
+    return n;
+  };
+
+  document.querySelectorAll(".examples button").forEach((b) =>
+    b.addEventListener("click", () => { $("#q").value = b.textContent; $("#q").focus(); }));
+
+  $("#ask").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const question = $("#q").value.trim();
+    const mode = document.querySelector("input[name=mode]:checked").value;
+    if (question.length < 3) return;
+    $("#go").disabled = true;
+    $("#result").replaceChildren();
+    const t0 = performance.now();
+    $("#status").textContent = "Searching the filings…";
+    const slow = setTimeout(() => {
+      $("#status").textContent = "Still working: the GPU may be waking up (up to a minute).";
+    }, 8000);
+    try {
+      const r = await fetch(`/api/${mode}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const data = await r.json().catch(() => ({ detail: `HTTP ${r.status}` }));
+      if (!r.ok) throw new Error(data.detail ? JSON.stringify(data.detail) : `HTTP ${r.status}`);
+      render(data);
+      $("#status").textContent = `Done in ${((performance.now() - t0) / 1000).toFixed(1)} s.`;
+    } catch (err) {
+      $("#status").textContent = `Error: ${err.message}`;
+    } finally {
+      clearTimeout(slow);
+      $("#go").disabled = false;
+    }
+  });
+
+  function render(a) {
+    const card = el("div", { class: "card" });
+    card.append(el("span", { class: `badge ${a.refused ? "refuse" : "ok"}` },
+      a.refused ? `Refused at: ${a.stage}` : "Answered"));
+    card.append(el("p", { class: "answer" }, a.answer));
+    card.append(el("p", { class: "reason" }, a.reason));
+
+    if (a.ungrounded_numbers?.length) {
+      card.append(el("h2", {}, "Figures not found in the cited passages"));
+      card.append(el("p", { class: "reason" }, a.ungrounded_numbers.join(", ")));
+    }
+    if (a.sources?.length) {
+      card.append(el("h2", {}, "Sources"));
+      const ol = el("ol", { class: "sources" });
+      for (const s of a.sources) {
+        const li = el("li");
+        const link = el("a", { href: s.url, target: "_blank", rel: "noopener" },
+          `${s.ticker} ${s.form} (period ${s.period}), Item ${String(s.section).split("-").pop()} ${s.section_title}`);
+        li.append(link);
+        if (s.score !== undefined) li.append(el("span", { class: "score" }, `  score ${s.score}`));
+        ol.append(li);
+      }
+      card.append(ol);
+    }
+    if (a.steps?.length) {
+      card.append(el("h2", {}, `Tool calls (${a.steps.length})`));
+      card.append(el("pre", {}, JSON.stringify(a.steps, null, 2)));
+    }
+    $("#result").replaceChildren(card);
+  }
+</script>
+</body>
+</html>

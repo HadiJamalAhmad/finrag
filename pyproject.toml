@@ -18,6 +18,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.5"]
+# Deploy the backend to Modal: deploy/modal_app.py
+deploy = ["modal>=1.6"]
 
 [project.scripts]
 finrag = "finrag.cli:main"
