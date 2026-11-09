@@ -163,6 +163,34 @@ The default stays `llama-3b`: best on this suite, cheapest, fastest. Mistral is 
 candidate to re-measure on the held-out Week 2 suite (and in the agent, where a 3B model
 struggles with multi-step tool use).
 
+## Information-system connector and document permissions
+
+`POST /documents` lets a connector (a GED export, a CRM job, an RPA bot) push a document:
+it is chunked, embedded and searchable at once, **readable only by its groups**.
+Reference connector: [`examples/push_document.py`](examples/push_document.py).
+
+- **Default deny.** A chunk is visible if it is public (no groups: the SEC filings) or
+  shares a group with the user; a request without identity sees public documents only.
+  The filter runs inside the vector query, so a document a user may not read never
+  reaches the model; the agent's search tool applies the same filter.
+- **Two credentials, two rights.** Pushing needs `x-ingest-key` (`FINRAG_INGEST_KEY`),
+  asking needs the query key: a connector cannot read answers, a client cannot write.
+  Without the ingest key configured, ingestion is off (503), never open.
+- **Nothing public by omission:** a document must name at least one group. The same id
+  again replaces the document (idempotent connector).
+- **Identity:** `groups` on `/query` and `/agent` come from the SSO gateway in
+  production (OIDC / SAML groups). The demo site lets you pick a *simulated* profile
+  (branch staff, risk department), mapped to groups server-side by the proxy.
+- **Demo limits, stated:** the live demo index lives in the backend container (a pushed
+  document lasts until it scales down); production would use a Qdrant server. The demo
+  document (`examples/demo_risk_policy.txt`) is fictitious.
+
+Measured on the live site (2026-11-09): as branch staff the internal policy stays
+invisible (refused); as the risk department the answer cites it (8% of CET1). On this
+question Claude Haiku answered 3 times out of 3, GPT-6 Luna once out of 3 (it falls back
+to the refusal phrase when internal and public passages are mixed): a reason to measure
+models per use case.
+
 ## GraphQL
 
 `POST /graphql` (Strawberry; explorer at `GET /graphql`, live at
