@@ -78,6 +78,10 @@ app = modal.App("finrag")
 DATA_FILES = ["qdrant", "facts", "manifest.json", "company_tickers.json"]
 VOLUME = modal.Volume.from_name("finrag-data", create_if_missing=True)
 VOL = "/vol"
+# Hosted models and tracing: OPENAI_API_KEY, ANTHROPIC_API_KEY, LANGFUSE_PUBLIC_KEY,
+# LANGFUSE_SECRET_KEY. Pushed from .env by deploy/push_secrets.py (never typed here);
+# a missing key only makes its model unavailable (503) or tracing a no-op.
+PROVIDERS = modal.Secret.from_name("finrag-providers")
 
 
 def stage_data() -> None:
@@ -142,7 +146,7 @@ def load_model(name: str) -> None:
     timeout=900,
     scaledown_window=300,  # idle 5 min -> scale to zero (no GPU cost while idle)
     max_containers=1,
-    secrets=[modal.Secret.from_name("finrag-api")],
+    secrets=[modal.Secret.from_name("finrag-api"), PROVIDERS],
     volumes={VOL: VOLUME},
 )
 class Backend:
@@ -195,22 +199,38 @@ class Backend:
         return api
 
 
-@app.function(image=image, gpu=GPUS, memory=32768, timeout=3600, volumes={VOL: VOLUME})
-def bakeoff(model: str, suite_jsonl: str) -> dict:
-    """Run the full eval (with the LLM) for one model preset, on the same GPU as the API."""
+def run_suite(model: str, suite_jsonl: str, gpu: str) -> dict:
+    """The full eval (with the LLM) for one preset; each case traced in Langfuse (eval)."""
     from dataclasses import replace
 
     from finrag import evaluate
     from finrag.cli import _scope
     from finrag.config import get_settings
     from finrag.store import Store
+    from finrag.tracing import Tracer
 
+    s = replace(get_settings(), model=model, gpu=gpu)
+    suite = [json.loads(ln) for ln in suite_jsonl.splitlines() if ln.strip()]
+    return evaluate.run(suite, _scope(s), Store(s), s, with_llm=True,
+                        tracer=Tracer.from_settings(s))
+
+
+@app.function(image=image, gpu=GPUS, memory=32768, timeout=3600, volumes={VOL: VOLUME},
+              secrets=[PROVIDERS])
+def bakeoff(model: str, suite_jsonl: str) -> dict:
+    """An Ollama preset, on the same GPU class as the API."""
     stage_data()
     start_ollama()
     load_model(model)
-    s = replace(get_settings(), model=model, gpu=which_gpu())
-    suite = [json.loads(ln) for ln in suite_jsonl.splitlines() if ln.strip()]
-    return evaluate.run(suite, _scope(s), Store(s), s, with_llm=True)
+    return run_suite(model, suite_jsonl, which_gpu())
+
+
+@app.function(image=image, memory=4096, timeout=3600, volumes={VOL: VOLUME},
+              secrets=[PROVIDERS])
+def bakeoff_hosted(model: str, suite_jsonl: str) -> dict:
+    """A hosted preset (OpenAI, Anthropic): no GPU, the vendor runs the model."""
+    stage_data()
+    return run_suite(model, suite_jsonl, "L4")  # gpu unused: hosted cost is per token
 
 
 @app.local_entrypoint()
@@ -233,19 +253,24 @@ def upload_data() -> None:
 
 
 @app.local_entrypoint()
-def bakeoff_all(models: str = "llama-3b,qwen3-4b,mistral-24b",
+def bakeoff_all(models: str = "llama-3b,qwen3-4b,mistral-24b,gpt-luna,claude-haiku",
                 suite: str = "eval/suites/seed.jsonl") -> None:
     """One container per model, in parallel; reports land in eval/reports/bakeoff-*.json."""
+    from finrag.models import get
+
     names = [m.strip() for m in models.split(",") if m.strip()]
     text = (ROOT / suite).read_text(encoding="utf-8")
     out_dir = ROOT / "eval" / "reports"
     out_dir.mkdir(parents=True, exist_ok=True)
+    calls = [(bakeoff if get(n).provider == "ollama" else bakeoff_hosted).spawn(n, text)
+             for n in names]
     rows = []
-    for name, rep in zip(names, bakeoff.starmap([(n, text) for n in names]), strict=True):
+    for name, rep in zip(names, [c.get() for c in calls], strict=True):
         (out_dir / f"bakeoff-{name}.json").write_text(json.dumps(rep, indent=2),
                                                      encoding="utf-8")
         g, lat, u = rep["gates"], rep["latency_s"], rep["usage"]
-        rows.append(f"{name:12} [{rep['model']['gpu']}] recall@5 {rep['recall@5']}  "
+        where = rep["model"]["gpu"] or rep["model"]["provider"]
+        rows.append(f"{name:12} [{where}] recall@5 {rep['recall@5']}  "
                     f"mrr {rep['mrr']}  "
                     f"false_accept {rep['false_accept_rate']}"
                     f"{'' if g['false_accept_rate']['pass'] else ' FAIL'}  "
