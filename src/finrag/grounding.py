@@ -49,6 +49,13 @@ def _matches(value: float, evidence: list[float]) -> bool:
     return False
 
 
+def _is_figure(raw: str, value: float) -> bool:
+    """Small bare integers (1-10) are mostly counts in prose ("2 products", Item 1)
+    and are skipped. A percentage or a decimal is a figure at any size: "8.0%" growth
+    or "3%" margin must be grounded like "$391.0 billion"."""
+    return value > 10 or "%" in raw or "percent" in raw or "." in raw
+
+
 def value_in(value: float, evidence_texts: list[str]) -> bool:
     """True if `value` appears in the evidence at some power-of-1000 scale."""
     return _matches(value, [v for t in evidence_texts for _, v in numbers(t)])
@@ -59,6 +66,5 @@ def check(answer: str, evidence_texts: list[str]) -> GroundingResult:
     cleaned = re.sub(r"\[\d+\]", " ", answer)
     found = numbers(cleaned)
     pool = [v for t in evidence_texts for _, v in numbers(t)]
-    ungrounded = [raw for raw, v in found if v > 10 and not _matches(v, pool)]
-    # Small integers (1-10) are mostly counts in prose ("three segments"); skipped.
+    ungrounded = [raw for raw, v in found if _is_figure(raw, v) and not _matches(v, pool)]
     return GroundingResult(not ungrounded, [raw for raw, _ in found], ungrounded)

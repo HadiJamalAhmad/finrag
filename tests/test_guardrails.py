@@ -61,3 +61,15 @@ def test_invented_figure_is_caught():
 def test_years_citations_and_small_counts_are_not_checked():
     r = grounding.check("In fiscal 2025 [2], the three segments grew 8% [1].", EVIDENCE)
     assert r.grounded
+
+
+def test_small_percentages_and_decimals_are_checked():
+    from finrag import grounding
+
+    evidence = ["Revenue grew 6.4% to $12,345 million; gross margin was 46.2 percent."]
+    assert grounding.check("Revenue grew 6.4% [1].", evidence).grounded
+    assert grounding.check("Revenue grew 8.0% [1].", evidence).ungrounded == ["8.0%"]
+    assert grounding.check("Margin rose 3%.", evidence).ungrounded == ["3%"]
+    assert grounding.check("EPS was $2.5.", evidence).ungrounded == ["$2.5"]
+    # Bare small integers stay skipped: counts and item numbers, not figures.
+    assert grounding.check("Item 1A lists 2 products [1].", evidence).grounded
