@@ -163,6 +163,26 @@ The default stays `llama-3b`: best on this suite, cheapest, fastest. Mistral is 
 candidate to re-measure on the held-out Week 2 suite (and in the agent, where a 3B model
 struggles with multi-step tool use).
 
+## GraphQL
+
+`POST /graphql` (Strawberry; explorer at `GET /graphql`, live at
+https://finrag-ten.vercel.app/api/graphql) exposes the same answer path as REST, typed:
+
+```graphql
+{ models { name provider available } }
+{ answer(question: "How does JPMorgan Chase measure and manage market risk?",
+         model: "mistral-24b", mode: PIPELINE) {
+    answer stage reason
+    sources { ticker section score }
+    usage { model promptTokens completionTokens estCostUsd } } }
+```
+
+Not a second implementation: each resolver calls the REST handlers, so the scope check,
+the evidence gate, numeric grounding, the ToolGuard (`mode: AGENT`), the cost estimate
+and the Langfuse trace are identical. Input is validated by the same pydantic model.
+Queries go by POST only: a cross-site GET can never start a paid model call. The model
+call runs off the event loop (async resolver, thread pool).
+
 ## Tracing (Langfuse)
 
 Every question becomes one Langfuse trace, sent by the official Python SDK
