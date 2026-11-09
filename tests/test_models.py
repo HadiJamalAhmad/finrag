@@ -140,6 +140,7 @@ def test_a_cut_agent_message_becomes_no_answer(monkeypatch):
 
 def test_cost_uses_the_gpu_that_actually_ran():
     assert models.detect_gpu("NVIDIA A10G") == "A10G"
+    assert models.detect_gpu("NVIDIA A10") == "A10G"  # what Modal's A10G reports
     assert models.detect_gpu("NVIDIA L4") == "L4"
     with pytest.raises(ValueError, match="no price"):
         models.detect_gpu("NVIDIA H100 80GB HBM3")

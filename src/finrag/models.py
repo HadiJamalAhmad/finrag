@@ -159,7 +159,12 @@ def unfinished(text: str, done_reason: str | None) -> str | None:
 
 
 def detect_gpu(nvidia_name: str) -> str:
-    """'NVIDIA A10G' -> 'A10G': the price table key for the GPU that actually ran."""
+    """'NVIDIA L4' -> 'L4': the price table key for the GPU that actually ran.
+
+    Modal's A10G reports itself to nvidia-smi as "NVIDIA A10" (seen 2026-11-09).
+    """
+    if nvidia_name.strip().upper().endswith(" A10"):
+        return "A10G"
     for key in GPU_USD_PER_HOUR:
         if key.lower() in nvidia_name.lower():
             return key
