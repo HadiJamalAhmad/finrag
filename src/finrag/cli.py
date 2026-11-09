@@ -60,8 +60,9 @@ def cmd_ingest(args, s) -> None:
 def cmd_ask(args, s) -> None:
     from finrag.answer import answer
     from finrag.store import Store
+    from finrag.tracing import Tracer
 
-    a = answer(args.question, _scope(s), Store(s), s)
+    a = answer(args.question, _scope(s), Store(s), s, tracer=Tracer.from_settings(s))
     print(a.answer)
     print(f"\n[{a.stage}] {a.reason}")
     _print_usage(a.usage)
@@ -78,7 +79,9 @@ def cmd_agent(args, s) -> None:
 
     sc = _scope(s)
     guard, model = agent.from_settings(s, Store(s), sc, args.max_calls)
-    a = agent.run(args.question, sc, guard, model, gpu=s.gpu)
+    from finrag.tracing import Tracer
+
+    a = agent.traced_run(args.question, sc, guard, model, s, Tracer.from_settings(s))
     print(a.answer)
     print(f"\n[{a.stage}] {a.reason}")
     _print_usage(a.usage)
@@ -102,7 +105,8 @@ def cmd_eval(args, s) -> None:
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
     if "model" in report:
         m, lat, u = report["model"], report["latency_s"], report["usage"]
-        print(f"model {m['preset']} ({m['ollama_tag']} @{m['digest'][:12]}) on {m['gpu']}")
+        where = f"@{m['digest'][:12]} on {m['gpu']}" if m["digest"] else f"via {m['provider']}"
+        print(f"model {m['preset']} ({m['model_id']} {where})")
         print(f"latency mean {lat['mean']} s, p50 {lat['p50']} s, p95 {lat['p95']} s; "
               f"est. GPU cost {u['est_cost_usd_total']} USD for {u['llm_answers']} answers")
     for name, g in report["gates"].items():

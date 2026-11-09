@@ -24,6 +24,7 @@ The model sits behind a two-method interface (`ChatModel`), so a hosted model
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Protocol, TypedDict
 
@@ -65,7 +66,7 @@ class OllamaChat:
     usage: Usage | None = None  # summed over every turn of one question
 
     def chat(self, messages: list[dict], tools: list[dict]) -> dict:
-        body = {"model": self.preset.ollama_tag, "messages": messages, "tools": tools,
+        body = {"model": self.preset.model_id, "messages": messages, "tools": tools,
                 "stream": False,
                 # num_ctx explicitly, always: see CLAUDE.md (the default exhausts RAM here).
                 # A reasoning preset needs its larger context here too.
@@ -124,7 +125,9 @@ def build_graph(sc: scope.Scope, guard: ToolGuard, model: ChatModel):
         out = []
         for call in state["messages"][-1]["tool_calls"]:
             fn = call.get("function", {})
+            # tool_call_id: OpenAI and Anthropic pair each result with its call.
             out.append({"role": "tool", "tool_name": fn.get("name", ""),
+                        "tool_call_id": call.get("id"),
                         "content": guard.run(fn.get("name", ""), fn.get("arguments"))})
         return {"messages": [*state["messages"], *out]}
 
@@ -185,6 +188,31 @@ def run(question: str, sc: scope.Scope, guard: ToolGuard, model: ChatModel,
                        _sources(guard, set(ids) or None), usage=usage, steps=guard.log)
 
 
+def traced_run(question: str, sc: scope.Scope, guard: ToolGuard, model: ChatModel,
+               settings: Settings, tracer=None) -> AgentAnswer:
+    """run(), plus one Langfuse trace: a span per tool call (from the guard's audit log)
+    and one generation with the model's summed usage."""
+    trace = (tracer.trace("agent", question, tags=[settings.model, "agent"],
+                          metadata={"model_id": settings.preset.model_id,
+                                    "max_calls": guard.max_calls}) if tracer else None)
+    t0 = time.time()
+    a = run(question, sc, guard, model, gpu=settings.gpu)
+    if trace is None:
+        return a
+    for st in a.steps:
+        with trace.span(f"tool:{st['tool']}", input=st["args"]) as sp:
+            sp.output = {"ok": st["ok"], "error": st.get("error")}
+            sp.metadata = {"ms": st.get("ms")}
+            if not st["ok"]:
+                sp.warning = st.get("error") or "refused by ToolGuard"
+    trace.generation("llm (all turns)", t0, settings.preset.model_id, question, a.answer,
+                     a.usage, {"preset": settings.model})
+    trace.end({"answer": a.answer, "refused": a.refused, "stage": a.stage, "reason": a.reason},
+              tags=[f"stage:{a.stage}"], metadata={"usage": a.usage,
+                                                   "tool_calls": len(a.steps)})
+    return a
+
+
 def _sources(guard: ToolGuard, ids: set[str] | None) -> list[dict]:
     return [{"n": ev.id, "tool": ev.tool, **ev.source}
             for ev in guard.evidence if ids is None or ev.id in ids]
@@ -200,4 +228,8 @@ def from_settings(settings: Settings, store, sc: scope.Scope, max_calls: int = 6
     load = facts_loader(lambda: edgar.EdgarClient(settings.sec_user_agent), ciks,
                         settings.data_dir / "facts")
     guard = build_guard(store, load, ciks, settings.top_k, settings.min_score, max_calls)
+    if settings.preset.provider != "ollama":
+        from finrag.providers import chat_model
+
+        return guard, chat_model(settings.preset, settings)
     return guard, OllamaChat(settings.ollama_url, settings.preset)

@@ -27,7 +27,8 @@ def load_suite(path: Path) -> list[dict]:
     return [json.loads(ln) for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
 
 
-def run(suite: list[dict], sc, store, settings, llm=None, with_llm: bool = True) -> dict:
+def run(suite: list[dict], sc, store, settings, llm=None, with_llm: bool = True,
+        tracer=None) -> dict:
     rec, rr, refusal_rows, cases, seconds, usages = [], [], [], [], [], []
     for case in suite:
         if case["answerable"]:
@@ -36,6 +37,8 @@ def run(suite: list[dict], sc, store, settings, llm=None, with_llm: bool = True)
             rec.append(metrics.recall_at_k(retrieved, case["gold"], 5))
             rr.append(metrics.reciprocal_rank(retrieved, case["gold"]))
         kwargs = {"llm": llm} if llm else {}
+        if tracer:  # each case becomes a trace tagged "eval", filterable per model
+            kwargs["tracer"] = _EvalTracer(tracer, case["id"])
         extra = {}
         if with_llm:
             t0 = time.perf_counter()
@@ -78,6 +81,17 @@ def run(suite: list[dict], sc, store, settings, llm=None, with_llm: bool = True)
     return report
 
 
+class _EvalTracer:
+    """Tags a case's trace with "eval" and its id, so eval runs never mix with live use."""
+
+    def __init__(self, tracer, case_id: str):
+        self.tracer, self.case_id = tracer, case_id
+
+    def trace(self, name, input, tags=(), metadata=None):
+        return self.tracer.trace(f"eval:{name}", input, [*tags, "eval", self.case_id],
+                                 {**(metadata or {}), "case": self.case_id})
+
+
 def _cost_and_latency(settings, seconds: list[float], usages: list[dict]) -> dict:
     """Which model answered (digest = provenance), how fast, and at what GPU cost."""
     p = settings.preset
@@ -88,8 +102,9 @@ def _cost_and_latency(settings, seconds: list[float], usages: list[dict]) -> dic
 
     total = sum(u["est_cost_usd"] for u in usages)
     return {
-        "model": {"preset": p.name, "label": p.label, "ollama_tag": p.ollama_tag,
-                  "digest": p.digest, "gpu": settings.gpu},
+        "model": {"preset": p.name, "label": p.label, "model_id": p.model_id,
+                  "provider": p.provider, "digest": p.digest,
+                  "gpu": settings.gpu if p.provider == "ollama" else None},
         # End-to-end per question (scope + retrieval + model + checks), refusals included.
         "latency_s": {"mean": round(mean(seconds), 2) if seconds else None,
                       "p50": pct(0.5), "p95": pct(0.95)},

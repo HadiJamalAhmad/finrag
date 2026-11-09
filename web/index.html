@@ -89,6 +89,8 @@
           <option value="llama-3b">Llama 3.2 3B (Meta)</option>
           <option value="qwen3-4b">Qwen3 4B (Alibaba)</option>
           <option value="mistral-24b">Mistral Small 3.2 24B</option>
+          <option value="gpt-luna">OpenAI GPT-6 Luna (hosted)</option>
+          <option value="claude-haiku">Claude Haiku 5.5 (hosted)</option>
         </select>
       </label>
       <button id="go" type="submit">Ask</button>
@@ -106,7 +108,9 @@
   <footer>
     Source: SEC EDGAR. Three open-weight models, pinned by digest, served by Ollama on one
     GPU that sleeps when idle: the first question after a pause can take a minute or two,
-    and switching model loads it first. Cost shown is GPU time. Not investment advice.
+    and switching model loads it first. GPT and Claude are hosted by their vendors: the
+    question and the retrieved filing passages are sent to them. Cost shown is GPU time
+    (open models) or tokens x list price (hosted). Not investment advice.
   </footer>
 </main>
 <script>
@@ -117,6 +121,15 @@
     if (text !== undefined) n.textContent = text;
     return n;
   };
+
+  // Hosted models are listed but disabled until their key is configured on the backend.
+  // Asked once; it may take a minute when the GPU is asleep, the page works meanwhile.
+  fetch("/api/models").then((r) => r.json()).then((d) => {
+    for (const m of d.models || []) {
+      const opt = document.querySelector(`#model option[value="${m.name}"]`);
+      if (opt && !m.available) { opt.disabled = true; opt.textContent += " · not configured"; }
+    }
+  }).catch(() => {});
 
   document.querySelectorAll(".examples button").forEach((b) =>
     b.addEventListener("click", () => { $("#q").value = b.textContent; $("#q").focus(); }));
@@ -162,7 +175,8 @@
       const u = a.usage;
       card.append(el("p", { class: "usage" },
         `${u.model} · ${u.prompt_tokens} + ${u.completion_tokens} tokens · ` +
-        `${u.llm_seconds} s of model time · est. $${u.est_cost_usd.toFixed(5)} on ${u.gpu}`));
+        `${u.llm_seconds} s of model time · est. $${u.est_cost_usd.toFixed(5)} ` +
+        (u.gpu ? `on ${u.gpu}` : "(tokens x list price)")));
     }
 
     if (a.ungrounded_numbers?.length) {

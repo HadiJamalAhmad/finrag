@@ -40,17 +40,16 @@ def test_registry_matches_the_lock_file():
     # The image build pulls deploy/models.lock and fails on a digest mismatch:
     # the registry and the lock must name the same weights.
     lock = models.read_lock()
-    assert lock == {p.ollama_tag: p.digest for p in models.MODEL_REGISTRY.values()}
+    assert lock == {models.get(n).model_id: models.get(n).digest for n in models.OLLAMA_MODELS}
     assert all(len(d) == 64 for d in lock.values())
 
 
-def test_three_models_and_a_loud_failure_on_unknown(monkeypatch):
-    assert list(models.MODEL_REGISTRY) == ["llama-3b", "qwen3-4b", "mistral-24b"]
+def test_default_env_choice_and_a_loud_failure_on_unknown(monkeypatch):
     monkeypatch.delenv("FINRAG_MODEL", raising=False)
     assert models.get().name == "llama-3b"
     monkeypatch.setenv("FINRAG_MODEL", "mistral-24b")
-    assert models.get().ollama_tag == "mistral-small3.2:24b"
-    with pytest.raises(ValueError, match="options: llama-3b, qwen3-4b, mistral-24b"):
+    assert models.get().model_id == "mistral-small3.2:24b"
+    with pytest.raises(ValueError, match="options: llama-3b, qwen3-4b, mistral-24b, gpt-luna"):
         models.get("gpt-5")
 
 
@@ -73,7 +72,7 @@ def test_generate_uses_the_preset(monkeypatch, name, think, ctx, cap):
 
     monkeypatch.setattr(ans.httpx, "post", fake_post)
     g = ans.generate("prompt", replace(S, model=name))
-    assert sent["model"] == models.get(name).ollama_tag
+    assert sent["model"] == models.get(name).model_id
     assert sent["options"]["num_ctx"] == ctx  # always explicit (CLAUDE.md)
     assert sent["options"]["num_predict"] == cap  # output cap: latency and cost bound
     # qwen3:4b always reasons: think=True puts the reasoning in a separate field.
@@ -170,7 +169,8 @@ def test_api_lists_the_models_and_rejects_an_unknown_one():
     from finrag.api import app
 
     client = TestClient(app)
-    names = [m["name"] for m in client.get("/models").json()["models"]]
-    assert names == ["llama-3b", "qwen3-4b", "mistral-24b"]
+    listed = client.get("/models").json()["models"]
+    assert [m["name"] for m in listed] == list(models.MODEL_REGISTRY)
+    assert all(m["available"] for m in listed if m["provider"] == "ollama")
     r = client.post("/query", json={"question": "Who supplies Apple?", "model": "gpt-5"})
     assert r.status_code == 422  # refused before any retrieval or model call
