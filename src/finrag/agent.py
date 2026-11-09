@@ -33,6 +33,7 @@ from langgraph.graph import END, START, StateGraph
 from finrag import grounding, scope
 from finrag.answer import REFUSAL, Answer
 from finrag.config import Settings
+from finrag.models import ModelPreset, Usage, strip_thinking
 from finrag.tools import ToolGuard
 
 SYSTEM = """You are a financial analyst assistant. You answer questions about the SEC
@@ -59,16 +60,26 @@ class ChatModel(Protocol):
 @dataclass
 class OllamaChat:
     url: str
-    model: str
+    preset: ModelPreset
     num_ctx: int = 8192  # tool results pile up across turns; still far below the default
+    usage: Usage | None = None  # summed over every turn of one question
 
     def chat(self, messages: list[dict], tools: list[dict]) -> dict:
-        r = httpx.post(f"{self.url}/api/chat", json={
-            "model": self.model, "messages": messages, "tools": tools, "stream": False,
-            # num_ctx explicitly, always: see CLAUDE.md (the default exhausts RAM here).
-            "options": {"temperature": 0, "num_ctx": self.num_ctx}}, timeout=300.0)
+        body = {"model": self.preset.ollama_tag, "messages": messages, "tools": tools,
+                "stream": False,
+                # num_ctx explicitly, always: see CLAUDE.md (the default exhausts RAM here).
+                "options": {"temperature": 0, "num_ctx": self.num_ctx}}
+        if self.preset.thinks:
+            body["think"] = False
+        r = httpx.post(f"{self.url}/api/chat", json=body, timeout=300.0)
         r.raise_for_status()
-        return r.json()["message"]
+        data = r.json()
+        turn = Usage.from_ollama(self.preset.name, data)
+        self.usage = turn if self.usage is None else self.usage + turn
+        msg = data["message"]
+        if msg.get("content"):
+            msg["content"] = strip_thinking(msg["content"])
+        return msg
 
 
 @dataclass
@@ -155,18 +166,21 @@ def build_graph(sc: scope.Scope, guard: ToolGuard, model: ChatModel):
     return g.compile()
 
 
-def run(question: str, sc: scope.Scope, guard: ToolGuard, model: ChatModel) -> AgentAnswer:
+def run(question: str, sc: scope.Scope, guard: ToolGuard, model: ChatModel,
+        gpu: str = "L4") -> AgentAnswer:
     graph = build_graph(sc, guard, model)
     # Each model turn is 2 graph steps (model + tools): the budget, not this limit,
     # is what normally stops a loop. This is the backstop.
     state = graph.invoke({"question": question},
                          {"recursion_limit": 2 * guard.max_calls + 10})
+    use = getattr(model, "usage", None)
+    usage = use.as_dict(gpu) if use else None
     if state["refused"]:
         return AgentAnswer(question, REFUSAL, True, state["stage"], state["reason"],
-                           _sources(guard, None), [], guard.log)
+                           _sources(guard, None), usage=usage, steps=guard.log)
     ids = cited_ids(state["answer"])
     return AgentAnswer(question, state["answer"], False, "answered", "ok",
-                       _sources(guard, set(ids) or None), [], guard.log)
+                       _sources(guard, set(ids) or None), usage=usage, steps=guard.log)
 
 
 def _sources(guard: ToolGuard, ids: set[str] | None) -> list[dict]:
@@ -184,4 +198,4 @@ def from_settings(settings: Settings, store, sc: scope.Scope, max_calls: int = 6
     load = facts_loader(lambda: edgar.EdgarClient(settings.sec_user_agent), ciks,
                         settings.data_dir / "facts")
     guard = build_guard(store, load, ciks, settings.top_k, settings.min_score, max_calls)
-    return guard, OllamaChat(settings.ollama_url, settings.llm_model)
+    return guard, OllamaChat(settings.ollama_url, settings.preset)

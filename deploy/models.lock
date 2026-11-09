@@ -1,0 +1,7 @@
+# Pinned Ollama models: <tag> <sha256 digest>, the same pins as JobHack.
+# A tag is a moving pointer (`ollama pull llama3.2:3b` next month may fetch other
+# weights); the digest is not. The Modal image build pulls these tags and FAILS if a
+# pulled digest differs. Must match src/finrag/models.py (tests/test_models.py checks).
+llama3.2:3b           a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72
+qwen3:4b              359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7
+mistral-small3.2:24b  5a408ab55df5c1b5cf46533c368813b30bf9e4d8fc39263bf2a3338cfa3b895b

@@ -64,6 +64,7 @@ def cmd_ask(args, s) -> None:
     a = answer(args.question, _scope(s), Store(s), s)
     print(a.answer)
     print(f"\n[{a.stage}] {a.reason}")
+    _print_usage(a.usage)
     for src in a.sources:
         print(f"  [{src['n']}] {src['ticker']} {src['form']} {src['period']} "
               f"Item {src['section']} {src['section_title']} (score {src['score']})")
@@ -77,9 +78,10 @@ def cmd_agent(args, s) -> None:
 
     sc = _scope(s)
     guard, model = agent.from_settings(s, Store(s), sc, args.max_calls)
-    a = agent.run(args.question, sc, guard, model)
+    a = agent.run(args.question, sc, guard, model, gpu=s.gpu)
     print(a.answer)
     print(f"\n[{a.stage}] {a.reason}")
+    _print_usage(a.usage)
     print(f"tool calls ({len(a.steps)}/{args.max_calls}):")
     for st in a.steps:
         outcome = "ok" if st["ok"] else f"REFUSED: {st['error']}"
@@ -98,13 +100,30 @@ def cmd_eval(args, s) -> None:
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    if "model" in report:
+        m, lat, u = report["model"], report["latency_s"], report["usage"]
+        print(f"model {m['preset']} ({m['ollama_tag']} @{m['digest'][:12]}) on {m['gpu']}")
+        print(f"latency mean {lat['mean']} s, p50 {lat['p50']} s, p95 {lat['p95']} s; "
+              f"est. GPU cost {u['est_cost_usd_total']} USD for {u['llm_answers']} answers")
     for name, g in report["gates"].items():
         print(f"{'PASS' if g['pass'] else 'FAIL'}  {name} = {g['value']}  (gate {g['threshold']})")
     print(f"report: {out}")
     sys.exit(0 if all(g["pass"] for g in report["gates"].values()) else 1)
 
 
+def _print_usage(usage: dict | None) -> None:
+    if usage:
+        print(f"model {usage['model']}: {usage['prompt_tokens']}+{usage['completion_tokens']} "
+              f"tokens, {usage['llm_seconds']} s, est. {usage['est_cost_usd']} USD "
+              f"on {usage['gpu']}")
+
+
 def main() -> None:
+    from finrag.models import MODEL_REGISTRY
+
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--model", choices=list(MODEL_REGISTRY),
+                        help="model preset (default: FINRAG_MODEL, then llama-3b)")
     p = argparse.ArgumentParser(prog="finrag")
     sub = p.add_subparsers(dest="cmd", required=True)
     f = sub.add_parser("fetch", help="download filings from SEC EDGAR")
@@ -112,18 +131,26 @@ def main() -> None:
     f.add_argument("--forms", nargs="+", default=["10-K"])
     f.add_argument("--limit", type=int, default=1, help="filings per form and company")
     sub.add_parser("ingest", help="parse, chunk, embed and index the downloaded filings")
-    a = sub.add_parser("ask")
+    a = sub.add_parser("ask", parents=[common])
     a.add_argument("question")
-    g = sub.add_parser("agent", help="answer with tools (search, reported figures, calculator)")
+    g = sub.add_parser("agent", parents=[common],
+                       help="answer with tools (search, reported figures, calculator)")
     g.add_argument("question")
     g.add_argument("--max-calls", type=int, default=6, help="tool call budget")
-    e = sub.add_parser("eval")
+    e = sub.add_parser("eval", parents=[common])
     e.add_argument("suite")
     e.add_argument("--out", default="eval/reports/latest.json")
     e.add_argument("--retrieval-only", action="store_true", help="skip the LLM (fast)")
     args = p.parse_args()
     {"fetch": cmd_fetch, "ingest": cmd_ingest, "ask": cmd_ask, "agent": cmd_agent,
-     "eval": cmd_eval}[args.cmd](args, get_settings())
+     "eval": cmd_eval}[args.cmd](args, _settings(args))
+
+
+def _settings(args):
+    from dataclasses import replace
+
+    s = get_settings()
+    return replace(s, model=args.model) if getattr(args, "model", None) else s
 
 
 if __name__ == "__main__":
