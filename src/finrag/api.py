@@ -50,6 +50,13 @@ def _deps():
     return s, _scope(s), Store(s)
 
 
+@lru_cache(maxsize=1)
+def _tracer():
+    from finrag.tracing import Tracer
+
+    return Tracer.from_settings(get_settings())  # a no-op without Langfuse keys
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -77,7 +84,7 @@ def _settings_for(q: Query):
 @app.post("/query")
 def query(q: Query) -> dict:
     s, sc, store = _settings_for(q)
-    return asdict(answer(q.question, sc, store, s))
+    return asdict(answer(q.question, sc, store, s, tracer=_tracer()))
 
 
 @app.post("/agent")
@@ -87,4 +94,4 @@ def agent_query(q: Query) -> dict:
 
     s, sc, store = _settings_for(q)
     guard, model = agent.from_settings(s, store, sc)  # a fresh guard per question
-    return asdict(agent.run(q.question, sc, guard, model, gpu=s.gpu))
+    return asdict(agent.traced_run(q.question, sc, guard, model, s, _tracer()))

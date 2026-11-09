@@ -7,6 +7,7 @@ reason is something an analyst can act on; a silent wrong figure is not.
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass, field
 
 import httpx
@@ -14,6 +15,7 @@ import httpx
 from finrag import grounding, scope
 from finrag.config import Settings
 from finrag.models import Usage, ollama_options, strip_thinking, unfinished
+from finrag.tracing import NULL
 
 REFUSAL = "I don't know based on the filings provided."
 
@@ -79,25 +81,59 @@ def generate(prompt: str, settings: Settings) -> Generation:
                       data.get("done_reason"))
 
 
-def answer(question: str, sc: scope.Scope, store, settings: Settings, llm=generate) -> Answer:
-    decision = scope.check(question, sc)
+def answer(question: str, sc: scope.Scope, store, settings: Settings, llm=generate,
+           tracer=None) -> Answer:
+    """The answer path. With a tracer (finrag.tracing), one Langfuse trace per question."""
+    trace = (tracer.trace("query", question, tags=[settings.model],
+                          metadata={"model_id": settings.preset.model_id,
+                                    "min_score": settings.min_score, "top_k": settings.top_k})
+             if tracer else NULL)
+    try:
+        a = _answer(question, sc, store, settings, llm, trace)
+    except Exception as exc:
+        trace.end({"error": f"{type(exc).__name__}: {exc}"}, tags=["error"])
+        raise
+    trace.end({"answer": a.answer, "refused": a.refused, "stage": a.stage, "reason": a.reason},
+              tags=[f"stage:{a.stage}"], metadata={"usage": a.usage})
+    return a
+
+
+def _answer(question: str, sc: scope.Scope, store, settings: Settings, llm, trace) -> Answer:
+    with trace.span("scope", input=question) as sp:
+        decision = scope.check(question, sc)
+        sp.output = {"in_scope": decision.in_scope, "tickers": sorted(decision.tickers),
+                     "years": sorted(decision.years), "reason": decision.reason}
+        if not decision.in_scope:
+            sp.warning = decision.reason
     if not decision.in_scope:
         return Answer(question, REFUSAL, True, "scope", decision.reason)
 
-    hits = store.search(question, settings.top_k, decision.tickers, decision.years)
-    sources = [{"n": i, "score": round(s, 3), **{k: p[k] for k in
-               ("ticker", "form", "period", "section", "section_title", "url")}}
-               for i, (s, p) in enumerate(hits, 1)]
-    if not hits or hits[0][0] < settings.min_score:
-        best = f"{hits[0][0]:.3f}" if hits else "none"
+    with trace.span("retrieve", input={"k": settings.top_k}) as sp:
+        hits = store.search(question, settings.top_k, decision.tickers, decision.years)
+        sources = [{"n": i, "score": round(s, 3), **{k: p[k] for k in
+                   ("ticker", "form", "period", "section", "section_title", "url")}}
+                   for i, (s, p) in enumerate(hits, 1)]
+        sp.output = [{k: src[k] for k in ("n", "ticker", "section", "score")} for src in sources]
+    with trace.span("evidence_gate") as sp:
+        best = hits[0][0] if hits else None
+        passed = best is not None and best >= settings.min_score
+        sp.output = {"best": round(best, 3) if best is not None else None,
+                     "min_score": settings.min_score, "pass": passed}
+        if not passed:
+            sp.warning = "best score below min_score"
+    if not passed:
+        shown = f"{best:.3f}" if best is not None else "none"
         return Answer(question, REFUSAL, True, "evidence",
-                      f"best score {best} < {settings.min_score}", sources)
+                      f"best score {shown} < {settings.min_score}", sources)
 
-    out = llm(build_prompt(question, hits), settings)
+    prompt, t0 = build_prompt(question, hits), time.time()
+    out = llm(prompt, settings)
     # A test double may return a plain string; the real generate() returns a Generation.
     text, use, done = ((out, None, "stop") if isinstance(out, str)
                        else (out.text, out.usage, out.done_reason))
     usage = use.as_dict(settings.gpu) if use else None
+    trace.generation("llm", t0, settings.preset.model_id, prompt, text, usage,
+                     {"preset": settings.model, "done_reason": done})
     problem = unfinished(text, done)
     if problem:  # cut at the cap, empty, or reasoning that never ended: not an answer
         return Answer(question, REFUSAL, True, "model", problem, sources, usage=usage)
@@ -105,8 +141,13 @@ def answer(question: str, sc: scope.Scope, store, settings: Settings, llm=genera
         return Answer(question, REFUSAL, True, "model", "the model found no answer", sources,
                       usage=usage)
 
-    cited = cited_indices(text, len(hits)) or list(range(1, len(hits) + 1))
-    check = grounding.check(text, [hits[i - 1][1]["text"] for i in cited])
+    with trace.span("numbers", input=text) as sp:
+        cited = cited_indices(text, len(hits)) or list(range(1, len(hits) + 1))
+        check = grounding.check(text, [hits[i - 1][1]["text"] for i in cited])
+        sp.output = {"grounded": check.grounded, "ungrounded": check.ungrounded,
+                     "cited": cited}
+        if not check.grounded:
+            sp.warning = "figures not found in the cited filings"
     if not check.grounded:
         return Answer(question, REFUSAL, True, "numbers",
                       "figures not found in the cited filings", sources, check.ungrounded,

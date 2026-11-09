@@ -60,8 +60,9 @@ def cmd_ingest(args, s) -> None:
 def cmd_ask(args, s) -> None:
     from finrag.answer import answer
     from finrag.store import Store
+    from finrag.tracing import Tracer
 
-    a = answer(args.question, _scope(s), Store(s), s)
+    a = answer(args.question, _scope(s), Store(s), s, tracer=Tracer.from_settings(s))
     print(a.answer)
     print(f"\n[{a.stage}] {a.reason}")
     _print_usage(a.usage)
@@ -78,7 +79,9 @@ def cmd_agent(args, s) -> None:
 
     sc = _scope(s)
     guard, model = agent.from_settings(s, Store(s), sc, args.max_calls)
-    a = agent.run(args.question, sc, guard, model, gpu=s.gpu)
+    from finrag.tracing import Tracer
+
+    a = agent.traced_run(args.question, sc, guard, model, s, Tracer.from_settings(s))
     print(a.answer)
     print(f"\n[{a.stage}] {a.reason}")
     _print_usage(a.usage)
