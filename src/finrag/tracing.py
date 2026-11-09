@@ -1,134 +1,148 @@
-"""Langfuse traces: one per question, one span per stage, the LLM call as a generation.
+"""Langfuse tracing through the official Python SDK (langfuse 5.x, OpenTelemetry based).
 
-    trace "query"  tags: [model, stage]           input: question   output: answer / refusal
-      span  scope            in scope? tickers, years
-      span  retrieve         top-k passages with scores
-      span  evidence_gate    best score vs min_score         (WARNING when it refuses)
-      gen   llm              model, prompt, answer, tokens, cost
-      span  numbers          grounded? ungrounded figures    (WARNING when it refuses)
+Why the SDK: Langfuse Cloud stops accepting traces on the legacy /api/public/ingestion
+endpoint on 2026-11-16 (it keeps only scores). The SDK exports OTLP spans in the
+background, batches, retries and flushes; finrag's first tracer (raw HTTP, 2026-11-09)
+targeted the endpoint that goes away.
 
-Plain HTTP to Langfuse's public ingestion API (POST /api/public/ingestion, basic auth
-with the project's public and secret keys), like the rest of finrag: no SDK. Tracing
-must never break an answer: without keys it is a no-op, and a failed send is logged and
-dropped. Traces hold questions and passages of public SEC filings; they go to Langfuse
-Cloud, EU region (the owner's choice).
+One trace per unit of work, names verb-first and stable (they are an API: evaluators,
+dashboards and saved filters key on them), each observation typed:
+
+    answer-question       chain       input: question       output: answer or refusal
+      check-scope         guardrail   in scope? tickers, years       (WARNING if refused)
+      retrieve-passages   retriever   the passages the model will see, with scores
+      check-evidence      guardrail   best score vs min_score        (WARNING if refused)
+      generate-answer     generation  messages, model, parameters, usage, cost, reasoning
+      check-figures       guardrail   grounded? ungrounded figures   (WARNING if refused)
+
+    answer-with-tools     agent       the agent: one generation per model turn, each
+      check-scope         guardrail   tool call a `tool` sibling of the generation that
+      generate-response   generation  asked for it, with its tool_call_id
+      search-filings      tool
+      ...
+      verify-answer       guardrail
+
+Tags are set at creation (they are immutable): finrag, the feature (pipeline | agent)
+and the model preset. What is only known at the end (which stage decided) is a score:
+`outcome` (categorical) and `refused` (boolean), plus `correct` on eval traces.
+Environment separates development, production (Modal) and eval runs.
+
+Without keys this is a no-op (NullObservation): no client is built, nothing is sent.
+SDK errors are caught and logged by the SDK; tracing never breaks an answer.
 """
 
 from __future__ import annotations
 
-import time
-import uuid
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
 
-import httpx
-
-TIMEOUT = 5.0
+from finrag import __version__
 
 
-def _iso(t: float | None = None) -> str:
-    return datetime.fromtimestamp(t or time.time(), UTC).isoformat(timespec="milliseconds")
+class Observation:
+    """One Langfuse observation (span, generation, tool...). Thin: SDK names pass through."""
 
-
-class Span:
-    """What a stage reports; filled inside `with trace.span(...) as sp:`."""
-
-    def __init__(self):
-        self.output = None
-        self.metadata: dict = {}
-        self.warning: str | None = None  # set when the stage refuses
-
-
-class Trace:
-    def __init__(self, tracer: Tracer, name: str, input, tags: list[str], metadata: dict):
-        self.tracer, self.id, self.events = tracer, str(uuid.uuid4()), []
-        self.name, self.input, self.tags, self.metadata = name, input, list(tags), metadata
-        self.start = time.time()
-
-    def _event(self, kind: str, body: dict) -> None:
-        self.events.append({"id": str(uuid.uuid4()), "timestamp": _iso(), "type": kind,
-                            "body": {"id": str(uuid.uuid4()), "traceId": self.id, **body}})
+    def __init__(self, obs):
+        self._obs = obs
 
     @contextmanager
-    def span(self, name: str, input=None):
-        sp, t0 = Span(), time.time()
-        try:
-            yield sp
-        finally:
-            body = {"name": name, "startTime": _iso(t0), "endTime": _iso(), "input": input,
-                    "output": sp.output, "metadata": sp.metadata or None}
-            if sp.warning:
-                body |= {"level": "WARNING", "statusMessage": sp.warning}
-            self._event("span-create", body)
+    def child(self, name: str, as_type: str = "span", **fields) -> Iterator[Observation]:
+        with self._obs.start_as_current_observation(name=name, as_type=as_type,
+                                                    **fields) as obs:
+            yield Observation(obs)
 
-    def generation(self, name: str, start: float, model: str, input, output, usage: dict | None,
-                   metadata: dict | None = None) -> None:
-        body = {"name": name, "startTime": _iso(start), "endTime": _iso(), "model": model,
-                "input": input, "output": output, "metadata": metadata}
-        if usage:
-            body["usageDetails"] = {"input": usage["prompt_tokens"],
-                                    "output": usage["completion_tokens"]}
-            body["costDetails"] = {"total": usage["est_cost_usd"]}
-        self._event("generation-create", body)
+    def update(self, **fields) -> None:
+        self._obs.update(**fields)
 
-    def end(self, output, tags: list[str] = (), metadata: dict | None = None) -> None:
-        self.events.insert(0, {"id": str(uuid.uuid4()), "timestamp": _iso(self.start),
-                               "type": "trace-create", "body": {
-                                   "id": self.id, "name": self.name, "timestamp": _iso(self.start),
-                                   "input": self.input, "output": output,
-                                   "tags": sorted({*self.tags, *tags}),
-                                   "metadata": {**self.metadata, **(metadata or {})}}})
-        self.tracer.send(self.events)
+    def warn(self, message: str) -> None:
+        """Mark the stage that refused: WARNING level, filterable in the UI."""
+        self._obs.update(level="WARNING", status_message=message)
+
+    def score(self, name: str, value, data_type: str, comment: str | None = None) -> None:
+        """A score on the whole trace (labels known only after the fact, never tags)."""
+        self._obs.score_trace(name=name, value=value, data_type=data_type, comment=comment)
+
+    @property
+    def trace_id(self) -> str | None:
+        return getattr(self._obs, "trace_id", None)
 
 
-class NullTrace:
-    """The no-op trace: same calls, records nothing (tracing off, or in tests)."""
+class NullObservation:
+    """Same calls, records nothing: tracing off (no keys) or not wanted."""
 
-    id = None
+    trace_id = None
 
     @contextmanager
-    def span(self, name: str, input=None):
-        yield Span()
+    def child(self, name: str, as_type: str = "span", **fields) -> Iterator[NullObservation]:
+        yield self
 
-    def generation(self, *args, **kwargs) -> None:
+    def update(self, **fields) -> None:
         pass
 
-    def end(self, *args, **kwargs) -> None:
+    def warn(self, message: str) -> None:
+        pass
+
+    def score(self, *args, **kwargs) -> None:
         pass
 
 
-NULL = NullTrace()
+NULL = NullObservation()
 
 
 class Tracer:
-    def __init__(self, public_key: str, secret_key: str, host: str,
-                 transport: httpx.BaseTransport | None = None):
-        self.enabled = bool(public_key and secret_key)
-        self.url = f"{host.rstrip('/')}/api/public/ingestion"
-        self._auth = (public_key, secret_key)
-        self._transport = transport
-        self.errors: list[str] = []  # kept for tests and /health-style checks
+    def __init__(self, client=None, environment: str = "development"):
+        self.client, self.environment = client, environment
+
+    @property
+    def enabled(self) -> bool:
+        return self.client is not None
 
     @classmethod
-    def from_settings(cls, s) -> Tracer:
-        return cls(s.langfuse_public_key, s.langfuse_secret_key, s.langfuse_host)
+    def from_settings(cls, s, environment: str | None = None, **sdk_options) -> Tracer:
+        """The SDK client from Settings; a disabled Tracer when the keys are absent.
 
-    def trace(self, name: str, input, tags: list[str] = (), metadata: dict | None = None):
+        sdk_options go to langfuse.Langfuse (tests pass an in-memory span_exporter, an
+        isolated tracer_provider and a mocked httpx_client: nothing leaves the machine).
+        """
+        env = environment or s.environment
+        if not (s.langfuse_public_key and s.langfuse_secret_key):
+            return cls(None, env)
+        from langfuse import Langfuse
+
+        client = Langfuse(public_key=s.langfuse_public_key, secret_key=s.langfuse_secret_key,
+                          base_url=s.langfuse_base_url, environment=env,
+                          release=f"finrag-{__version__}", **sdk_options)
+        return cls(client, env)
+
+    @contextmanager
+    def root(self, name: str, as_type: str, input, tags: list[str],
+             metadata: dict | None = None,
+             environment: str | None = None) -> Iterator[Observation | NullObservation]:
+        """Open a trace: tags and environment propagate to every child observation."""
         if not self.enabled:
-            return NULL
-        return Trace(self, name, input, list(tags), metadata or {})
+            yield NULL
+            return
+        from langfuse import propagate_attributes
 
-    def send(self, events: list[dict]) -> None:
-        try:
-            with httpx.Client(transport=self._transport, timeout=TIMEOUT) as c:
-                r = c.post(self.url, json={"batch": events}, auth=self._auth)
-            # 207 Multi-Status: the batch was read; per-event errors are listed.
-            problems = r.json().get("errors") if r.status_code in (200, 207) else None
-            if r.status_code not in (200, 207) or problems:
-                self._warn(f"langfuse ingestion {r.status_code}: {problems or r.text[:200]}")
-        except Exception as exc:  # never let tracing break an answer
-            self._warn(f"langfuse send failed: {type(exc).__name__}: {exc}")
+        with propagate_attributes(tags=["finrag", *tags], trace_name=name,
+                                  environment=environment or self.environment):
+            with self.client.start_as_current_observation(
+                    name=name, as_type=as_type, input=input, metadata=metadata) as obs:
+                yield Observation(obs)
 
-    def _warn(self, msg: str) -> None:
-        self.errors.append(msg)
-        print(msg)
+    def score_trace(self, trace_id: str, name: str, value, data_type: str,
+                    comment: str | None = None) -> None:
+        """Score a finished trace by id (the eval labels each case after the answer)."""
+        if self.client is not None and trace_id:
+            self.client.create_score(trace_id=trace_id, name=name, value=value,
+                                     data_type=data_type, comment=comment)
+
+    def flush(self) -> None:
+        """Send what is buffered. Call before a short-lived process (CLI, eval) exits."""
+        if self.client is not None:
+            self.client.flush()
+
+    def shutdown(self) -> None:
+        """Flush and stop the background exporter (a server's shutdown hook)."""
+        if self.client is not None:
+            self.client.shutdown()

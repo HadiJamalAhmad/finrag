@@ -1,11 +1,18 @@
-"""Langfuse tracing: what a trace holds per stage, and that it never breaks an answer."""
+"""Langfuse tracing through the real SDK, offline.
 
-import base64
+The SDK runs as in production, but its spans go to an in-memory OpenTelemetry exporter
+(isolated tracer provider) and its HTTP calls (scores) to a MockTransport: nothing
+leaves the machine (CLAUDE.md: tests stay offline).
+"""
+
 import json
+import uuid
 from dataclasses import replace
 
 import httpx
 import pytest
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from test_agent_tools import FACTS, FakeStore, Scripted, call, say
 
 from finrag import agent, evaluate, models, scope
@@ -16,22 +23,52 @@ from finrag.tracing import NULL, Tracer
 
 S = Settings(sec_user_agent="x y@z", min_score=0.55, gpu="L4")
 GEN = ans.Generation("A single supplier in Taiwan [1].",
-                     models.Usage("llama-3b", 900, 40, 4.5, 1))
+                     models.Usage("llama-3b", 900, 40, 4.5, 1), "stop", "Item 1A says...")
 
 
-def recording_tracer(status=207, body=None):
-    sent = []
+class Capture:
+    """A Tracer on the real SDK whose output stays in memory."""
 
-    def handler(request):
-        sent.append(request)
-        return httpx.Response(status, json=body or {"successes": [], "errors": []})
+    def __init__(self, fail_http: bool = False):
+        self.exporter, self.requests = InMemorySpanExporter(), []
 
-    return Tracer("pk-lf-test", "sk-lf-test", "https://cloud.langfuse.com",
-                  transport=httpx.MockTransport(handler)), sent
+        def handler(request):
+            if fail_http:
+                raise httpx.ConnectError("langfuse down")
+            self.requests.append(request)
+            return httpx.Response(200, json={})
+
+        s = replace(S, langfuse_public_key=f"pk-lf-test-{uuid.uuid4()}",
+                    langfuse_secret_key="sk-lf-test", langfuse_base_url="http://langfuse.test")
+        self.tracer = Tracer.from_settings(
+            s, environment="test", tracer_provider=TracerProvider(),
+            span_exporter=self.exporter,
+            httpx_client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+    def spans(self) -> list:
+        self.tracer.flush()
+        return list(self.exporter.get_finished_spans())
+
+    def scores(self) -> dict:
+        self.tracer.flush()
+        out = {}
+        for r in self.requests:
+            if r.url.path.endswith("/api/public/scores"):
+                for sc in json.loads(r.content):
+                    out[sc["name"]] = sc
+        return out
 
 
-def events(request):
-    return json.loads(request.content)["batch"]
+def attr(span, key):
+    v = span.attributes.get(f"langfuse.{key}")
+    try:
+        return json.loads(v) if isinstance(v, str) else v
+    except json.JSONDecodeError:
+        return v
+
+
+def by_name(spans, name):
+    return [s for s in spans if s.name == name]
 
 
 @pytest.fixture
@@ -39,83 +76,119 @@ def sc(filing_10k, sec_names):
     return scope.Scope.build([filing_10k], sec_names)
 
 
-def test_no_keys_no_tracing():
-    t = Tracer("", "", "https://cloud.langfuse.com")
-    assert not t.enabled and t.trace("query", "q") is NULL
+# ---------------------------------------------------------------- off without keys
+def test_no_keys_no_client_no_tracing(sc):
+    t = Tracer.from_settings(S)
+    assert not t.enabled and t.client is None
+    with t.root("answer-question", "chain", input="q", tags=[]) as obs:
+        assert obs is NULL
+    a = ans.answer("Who supplies Acme?", sc, FakeStore(), S, llm=lambda p, s: GEN, tracer=t)
+    assert not a.refused and a.trace_id is None
 
 
-def test_an_answer_is_one_trace_with_a_span_per_stage(sc):
-    tracer, sent = recording_tracer()
+# ---------------------------------------------------------------- pipeline
+def test_an_answer_is_one_trace_typed_stage_by_stage(sc):
+    cap = Capture()
     a = ans.answer("Who supplies Acme?", sc, FakeStore(), S, llm=lambda p, s: GEN,
-                   tracer=tracer)
-    assert not a.refused and len(sent) == 1  # one batch per question
-    req = sent[0]
-    assert str(req.url) == "https://cloud.langfuse.com/api/public/ingestion"
-    assert req.headers["authorization"] == "Basic " + base64.b64encode(
-        b"pk-lf-test:sk-lf-test").decode()
-    batch = events(req)
-    trace = batch[0]
-    assert trace["type"] == "trace-create"
-    assert trace["body"]["tags"] == ["llama-3b", "stage:answered"]
-    assert trace["body"]["output"]["stage"] == "answered"
-    names = [e["body"]["name"] for e in batch[1:]]
-    assert names == ["scope", "retrieve", "evidence_gate", "llm", "numbers"]
-    assert all(e["body"]["traceId"] == trace["body"]["id"] for e in batch[1:])
-    gen = next(e for e in batch if e["type"] == "generation-create")["body"]
-    assert gen["usageDetails"] == {"input": 900, "output": 40}
-    assert gen["costDetails"]["total"] == pytest.approx(4.5 * 0.80 / 3600, abs=1e-6)
+                   tracer=cap.tracer)
+    spans = cap.spans()
+    root = by_name(spans, "answer-question")[0]
+    children = [s for s in spans if s.parent and s.parent.span_id == root.context.span_id]
+    assert [(s.name, attr(s, "observation.type")) for s in children] == [
+        ("check-scope", "guardrail"), ("retrieve-passages", "retriever"),
+        ("check-evidence", "guardrail"), ("generate-answer", "generation"),
+        ("check-figures", "guardrail")]
+    assert attr(root, "observation.type") == "chain"
+    assert attr(root, "observation.input") == "Who supplies Acme?"
+    assert attr(root, "observation.output")["stage"] == "answered"
+    # Tags set at creation, on every observation; environment separates test traffic.
+    assert set(root.attributes["langfuse.trace.tags"]) == {"finrag", "pipeline", "llama-3b"}
+    assert all(s.attributes["langfuse.environment"] == "test" for s in spans)
+    assert a.trace_id == format(root.context.trace_id, "032x")
 
 
-def test_a_refusal_is_tagged_with_its_stage_and_the_stage_is_a_warning(sc):
-    tracer, sent = recording_tracer()
+def test_the_generation_carries_messages_model_usage_cost_and_reasoning(sc):
+    cap = Capture()
+    ans.answer("Who supplies Acme?", sc, FakeStore(), S, llm=lambda p, s: GEN, tracer=cap.tracer)
+    gen = by_name(cap.spans(), "generate-answer")[0]
+    assert attr(gen, "observation.model.name") == "llama3.2:3b"
+    assert attr(gen, "observation.model.parameters")["num_ctx"] == 4096
+    messages = attr(gen, "observation.input")
+    assert messages[0]["role"] == "user" and "Excerpts:" in messages[0]["content"]
+    assert attr(gen, "observation.output") == {"role": "assistant", "content": GEN.text}
+    # Exclusive input/output buckets; our cost (Langfuse cannot price a self-hosted model).
+    assert attr(gen, "observation.usage_details") == {"input": 900, "output": 40}
+    assert attr(gen, "observation.cost_details")["total"] == pytest.approx(
+        4.5 * 0.80 / 3600, abs=1e-6)
+    assert attr(gen, "observation.metadata.reasoning") == "Item 1A says..."
+
+
+def test_the_retriever_shows_the_passages_the_model_saw(sc):
+    cap = Capture()
+    ans.answer("Who supplies Acme?", sc, FakeStore(), S, llm=lambda p, s: GEN, tracer=cap.tracer)
+    out = attr(by_name(cap.spans(), "retrieve-passages")[0], "observation.output")
+    assert out[0]["section"] == "1A" and "single supplier in Taiwan" in out[0]["text"]
+
+
+def test_a_refusal_warns_at_its_stage_and_is_scored_not_tagged(sc):
+    cap = Capture()
     a = ans.answer("Who supplies Acme?", sc, FakeStore(score=0.3), S,
-                   llm=lambda p, s: GEN, tracer=tracer)
-    assert a.stage == "evidence"
-    batch = events(sent[0])
-    assert "stage:evidence" in batch[0]["body"]["tags"]
-    gate = next(e["body"] for e in batch if e["body"].get("name") == "evidence_gate")
-    assert gate["level"] == "WARNING" and gate["output"]["pass"] is False
-    assert not any(e["type"] == "generation-create" for e in batch)  # model never called
+                   llm=lambda p, s: GEN, tracer=cap.tracer)
+    spans = cap.spans()
+    gate = by_name(spans, "check-evidence")[0]
+    assert attr(gate, "observation.level") == "WARNING"
+    assert not by_name(spans, "generate-answer")  # the model was never called
+    scores = cap.scores()
+    assert scores["outcome"]["value"] == "evidence" == a.stage
+    assert scores["refused"]["value"] == 1
+    assert "stage:evidence" not in by_name(spans, "answer-question")[0].attributes[
+        "langfuse.trace.tags"]
 
 
-def test_tracing_failure_never_breaks_the_answer(sc):
-    def boom(request):
-        raise httpx.ConnectError("langfuse down")
-
-    tracer = Tracer("pk", "sk", "https://cloud.langfuse.com", transport=httpx.MockTransport(boom))
-    a = ans.answer("Who supplies Acme?", sc, FakeStore(), S, llm=lambda p, s: GEN, tracer=tracer)
+def test_tracing_failures_never_break_the_answer(sc):
+    cap = Capture(fail_http=True)  # scores cannot be sent
+    a = ans.answer("Who supplies Acme?", sc, FakeStore(), S, llm=lambda p, s: GEN,
+                   tracer=cap.tracer)
     assert not a.refused and a.answer == GEN.text
-    assert tracer.errors and "langfuse send failed" in tracer.errors[0]
+    cap.tracer.flush()  # must not raise either
 
 
-def test_ingestion_errors_are_reported_not_raised(sc):
-    tracer, _ = recording_tracer(207, {"successes": [], "errors": [{"id": "x", "status": 400}]})
-    ans.answer("Who supplies Acme?", sc, FakeStore(), S, llm=lambda p, s: GEN, tracer=tracer)
-    assert tracer.errors and "207" in tracer.errors[0]
-
-
-def test_eval_traces_are_tagged_eval_and_case(sc):
-    tracer, sent = recording_tracer()
+# ---------------------------------------------------------------- eval
+def test_eval_traces_go_to_the_eval_environment_with_a_correct_score(sc):
+    cap = Capture()
     suite = [{"id": "acme-supplier", "question": "Who supplies Acme?", "answerable": True,
               "gold": {"ticker": "ACME", "form": "10-K", "section": "1A"}}]
-    evaluate.run(suite, sc, FakeStore(), S, llm=lambda p, s: GEN, tracer=tracer)
-    body = events(sent[0])[0]["body"]
-    assert body["name"] == "eval:query"
-    assert {"eval", "acme-supplier", "llama-3b"} <= set(body["tags"])
+    evaluate.run(suite, sc, FakeStore(), S, llm=lambda p, s: GEN, tracer=cap.tracer)
+    root = by_name(cap.spans(), "answer-question")[0]
+    assert root.attributes["langfuse.environment"] == "eval"
+    assert "eval" in root.attributes["langfuse.trace.tags"]
+    assert attr(root, "observation.metadata.case") == "acme-supplier"
+    assert cap.scores()["correct"]["value"] == 1  # answerable and answered
 
 
-def test_agent_trace_has_a_span_per_tool_call(sc):
-    tracer, sent = recording_tracer()
+# ---------------------------------------------------------------- agent
+def test_agent_trace_one_generation_per_turn_tools_as_siblings(sc):
+    cap = Capture()
     guard = build_guard(FakeStore(), lambda t: FACTS, {"ACME"}, top_k=5, min_score=0.55,
                         max_calls=4)
-    model = Scripted(call("get_financial_fact", ticker="ACME", metric="revenue",
-                          fiscal_year=2025),
-                     call("delete_everything"),  # refused by the guard: a WARNING span
-                     say("Revenue was $12,345 million [S1]."))
-    agent.traced_run("Acme revenue in fiscal 2025?", sc, guard, model,
-                     replace(S, model="llama-3b"), tracer)
-    batch = events(sent[0])
-    spans = [e["body"] for e in batch if e["type"] == "span-create"]
-    assert [s["name"] for s in spans] == ["tool:get_financial_fact", "tool:delete_everything"]
-    assert spans[1]["level"] == "WARNING"
-    assert "agent" in batch[0]["body"]["tags"]
+    first = call("get_financial_fact", ticker="ACME", metric="revenue", fiscal_year=2025)
+    first["tool_calls"][0]["id"] = "call_1"
+    model = Scripted(first, call("delete_everything"), say("Revenue was $12,345 million [S1]."))
+    a = agent.traced_run("Acme revenue in fiscal 2025?", sc, guard, model, S, cap.tracer)
+    spans = cap.spans()
+    root = by_name(spans, "answer-with-tools")[0]
+    assert attr(root, "observation.type") == "agent"
+    children = [s for s in spans if s.parent and s.parent.span_id == root.context.span_id]
+    assert [s.name for s in children] == [
+        "check-scope", "generate-response", "get-financial-fact", "generate-response",
+        "unknown-tool", "generate-response", "verify-answer"]
+    tool = by_name(spans, "get-financial-fact")[0]
+    assert attr(tool, "observation.type") == "tool"
+    assert attr(tool, "observation.metadata.tool_call_id") == "call_1"
+    unknown = by_name(spans, "unknown-tool")[0]
+    assert attr(unknown, "observation.level") == "WARNING"
+    assert attr(unknown, "observation.metadata.tool") == "delete_everything"
+    # Tool-call arguments as JSON strings in the role-labelled output of the generation.
+    out = attr(by_name(spans, "generate-response")[0], "observation.output")
+    assert json.loads(out["tool_calls"][0]["function"]["arguments"])["ticker"] == "ACME"
+    assert cap.scores()["outcome"]["value"] == a.stage

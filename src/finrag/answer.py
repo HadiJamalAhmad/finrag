@@ -7,14 +7,13 @@ reason is something an analyst can act on; a silent wrong figure is not.
 from __future__ import annotations
 
 import re
-import time
 from dataclasses import dataclass, field
 
 import httpx
 
 from finrag import grounding, scope
 from finrag.config import Settings
-from finrag.models import Usage, ollama_options, strip_thinking, unfinished
+from finrag.models import Usage, model_parameters, ollama_options, strip_thinking, unfinished
 from finrag.tracing import NULL
 
 REFUSAL = "I don't know based on the filings provided."
@@ -42,6 +41,8 @@ class Answer:
     ungrounded_numbers: list[str] = field(default_factory=list)
     # Tokens, model seconds and estimated GPU cost, when the model was called.
     usage: dict | None = None
+    # The Langfuse trace of this answer (None when tracing is off).
+    trace_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,9 @@ class Generation:
     usage: Usage
     # Ollama's done_reason: "stop", or "length" when the answer hit num_predict.
     done_reason: str | None = "stop"
+    # The model's reasoning, when it returns one apart from the answer (Qwen3's
+    # `thinking`, Claude's thinking blocks): traced, never shown as the answer.
+    reasoning: str | None = None
 
 
 def build_prompt(question: str, hits: list[tuple[float, dict]]) -> str:
@@ -67,8 +71,8 @@ def generate(prompt: str, settings: Settings) -> Generation:
     if preset.provider != "ollama":
         from finrag.providers import generate_hosted
 
-        text, usage, done = generate_hosted(prompt, preset, settings)
-        return Generation(text, usage, done)
+        text, usage, done, reasoning = generate_hosted(prompt, preset, settings)
+        return Generation(text, usage, done, reasoning)
     # num_ctx and num_predict always explicit, per preset (finrag.models): recent Ollama
     # defaults to a huge context and tried to allocate a 12 GB KV cache on this machine.
     body = {"model": preset.model_id, "prompt": prompt, "stream": False,
@@ -78,62 +82,86 @@ def generate(prompt: str, settings: Settings) -> Generation:
     data = r.json()
     # With think=True the reasoning comes back in data["thinking"], never in the answer.
     return Generation(strip_thinking(data["response"]), Usage.from_ollama(preset.name, data),
-                      data.get("done_reason"))
+                      data.get("done_reason"), data.get("thinking") or None)
 
 
 def answer(question: str, sc: scope.Scope, store, settings: Settings, llm=generate,
-           tracer=None) -> Answer:
-    """The answer path. With a tracer (finrag.tracing), one Langfuse trace per question."""
-    trace = (tracer.trace("query", question, tags=[settings.model],
-                          metadata={"model_id": settings.preset.model_id,
-                                    "min_score": settings.min_score, "top_k": settings.top_k})
-             if tracer else NULL)
-    try:
-        a = _answer(question, sc, store, settings, llm, trace)
-    except Exception as exc:
-        trace.end({"error": f"{type(exc).__name__}: {exc}"}, tags=["error"])
-        raise
-    trace.end({"answer": a.answer, "refused": a.refused, "stage": a.stage, "reason": a.reason},
-              tags=[f"stage:{a.stage}"], metadata={"usage": a.usage})
+           tracer=None, trace_context: dict | None = None) -> Answer:
+    """The answer path. With a tracer (finrag.tracing): one Langfuse trace per question.
+
+    trace_context: extra "tags", "metadata" and "environment" for the trace (eval runs).
+    """
+    ctx = trace_context or {}
+    if tracer is None or not tracer.enabled:
+        return _answer(question, sc, store, settings, llm, NULL)
+    with tracer.root("answer-question", "chain", input=question,
+                     tags=["pipeline", settings.model, *ctx.get("tags", [])],
+                     metadata={"model_id": settings.preset.model_id,
+                               "min_score": settings.min_score, "top_k": settings.top_k,
+                               **ctx.get("metadata", {})},
+                     environment=ctx.get("environment")) as root:
+        a = _answer(question, sc, store, settings, llm, root)
+        # What a reviewer needs at a glance; sources and usage go to metadata.
+        root.update(output={"answer": a.answer, "stage": a.stage, "reason": a.reason},
+                    metadata={"sources": a.sources, "usage": a.usage,
+                              "ungrounded_numbers": a.ungrounded_numbers})
+        # Known only at the end: scores, not tags (tags are fixed at creation).
+        root.score("outcome", a.stage, "CATEGORICAL", comment=a.reason)
+        root.score("refused", 1 if a.refused else 0, "BOOLEAN")
+        a.trace_id = root.trace_id
     return a
 
 
-def _answer(question: str, sc: scope.Scope, store, settings: Settings, llm, trace) -> Answer:
-    with trace.span("scope", input=question) as sp:
+def _answer(question: str, sc: scope.Scope, store, settings: Settings, llm, obs) -> Answer:
+    with obs.child("check-scope", "guardrail", input=question) as sp:
         decision = scope.check(question, sc)
-        sp.output = {"in_scope": decision.in_scope, "tickers": sorted(decision.tickers),
-                     "years": sorted(decision.years), "reason": decision.reason}
+        sp.update(output={"in_scope": decision.in_scope, "tickers": sorted(decision.tickers),
+                          "years": sorted(decision.years), "reason": decision.reason})
         if not decision.in_scope:
-            sp.warning = decision.reason
+            sp.warn(decision.reason)
     if not decision.in_scope:
         return Answer(question, REFUSAL, True, "scope", decision.reason)
 
-    with trace.span("retrieve", input={"k": settings.top_k}) as sp:
+    with obs.child("retrieve-passages", "retriever", input=question) as sp:
         hits = store.search(question, settings.top_k, decision.tickers, decision.years)
         sources = [{"n": i, "score": round(s, 3), **{k: p[k] for k in
                    ("ticker", "form", "period", "section", "section_title", "url")}}
                    for i, (s, p) in enumerate(hits, 1)]
-        sp.output = [{k: src[k] for k in ("n", "ticker", "section", "score")} for src in sources]
-    with trace.span("evidence_gate") as sp:
-        best = hits[0][0] if hits else None
-        passed = best is not None and best >= settings.min_score
-        sp.output = {"best": round(best, 3) if best is not None else None,
-                     "min_score": settings.min_score, "pass": passed}
+        # The exact passages the model will see: what a reviewer needs to judge the answer.
+        sp.update(output=[{"n": i, "ticker": p["ticker"], "section": p["section"],
+                           "score": round(s, 3), "text": p["text"]}
+                          for i, (s, p) in enumerate(hits, 1)],
+                  metadata={"k": settings.top_k, "tickers": sorted(decision.tickers),
+                            "years": sorted(decision.years)})
+    best = hits[0][0] if hits else None
+    passed = best is not None and best >= settings.min_score
+    with obs.child("check-evidence", "guardrail",
+                   input={"best_score": round(best, 3) if best is not None else None,
+                          "min_score": settings.min_score}) as sp:
+        sp.update(output={"pass": passed})
         if not passed:
-            sp.warning = "best score below min_score"
+            sp.warn("best retrieval score below min_score")
     if not passed:
         shown = f"{best:.3f}" if best is not None else "none"
         return Answer(question, REFUSAL, True, "evidence",
                       f"best score {shown} < {settings.min_score}", sources)
 
-    prompt, t0 = build_prompt(question, hits), time.time()
-    out = llm(prompt, settings)
-    # A test double may return a plain string; the real generate() returns a Generation.
-    text, use, done = ((out, None, "stop") if isinstance(out, str)
-                       else (out.text, out.usage, out.done_reason))
-    usage = use.as_dict(settings.gpu) if use else None
-    trace.generation("llm", t0, settings.preset.model_id, prompt, text, usage,
-                     {"preset": settings.model, "done_reason": done})
+    prompt = build_prompt(question, hits)
+    preset = settings.preset
+    with obs.child("generate-answer", "generation", model=preset.model_id,
+                   model_parameters=model_parameters(preset),
+                   input=[{"role": "user", "content": prompt}]) as gen:
+        out = llm(prompt, settings)
+        # A test double may return a plain string; the real generate() returns a Generation.
+        text, use, done, reasoning = ((out, None, "stop", None) if isinstance(out, str)
+                                      else (out.text, out.usage, out.done_reason, out.reasoning))
+        usage = use.as_dict(settings.gpu) if use else None
+        gen.update(output={"role": "assistant", "content": text},
+                   metadata={"preset": settings.model, "done_reason": done,
+                             "reasoning": reasoning,
+                             "pricing": usage and usage["pricing"],
+                             "llm_seconds": usage and usage["llm_seconds"]},
+                   **_usage_fields(usage))
     problem = unfinished(text, done)
     if problem:  # cut at the cap, empty, or reasoning that never ended: not an answer
         return Answer(question, REFUSAL, True, "model", problem, sources, usage=usage)
@@ -141,16 +169,26 @@ def _answer(question: str, sc: scope.Scope, store, settings: Settings, llm, trac
         return Answer(question, REFUSAL, True, "model", "the model found no answer", sources,
                       usage=usage)
 
-    with trace.span("numbers", input=text) as sp:
+    with obs.child("check-figures", "guardrail", input=text) as sp:
         cited = cited_indices(text, len(hits)) or list(range(1, len(hits) + 1))
         check = grounding.check(text, [hits[i - 1][1]["text"] for i in cited])
-        sp.output = {"grounded": check.grounded, "ungrounded": check.ungrounded,
-                     "cited": cited}
+        sp.update(output={"grounded": check.grounded, "ungrounded": check.ungrounded},
+                  metadata={"cited": cited})
         if not check.grounded:
-            sp.warning = "figures not found in the cited filings"
+            sp.warn("figures not found in the cited filings")
     if not check.grounded:
         return Answer(question, REFUSAL, True, "numbers",
                       "figures not found in the cited filings", sources, check.ungrounded,
                       usage=usage)
     return Answer(question, text, False, "answered", "ok",
                   [s for s in sources if s["n"] in cited], usage=usage)
+
+
+def _usage_fields(usage: dict | None) -> dict:
+    """Langfuse generation fields: exclusive input/output buckets, and our cost estimate
+    (Langfuse cannot price a self-hosted model; ingested cost takes priority)."""
+    if not usage:
+        return {}
+    return {"usage_details": {"input": usage["prompt_tokens"],
+                              "output": usage["completion_tokens"]},
+            "cost_details": {"total": usage["est_cost_usd"]}}

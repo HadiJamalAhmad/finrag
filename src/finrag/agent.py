@@ -23,8 +23,8 @@ The model sits behind a two-method interface (`ChatModel`), so a hosted model
 
 from __future__ import annotations
 
+import json
 import re
-import time
 from dataclasses import dataclass, field
 from typing import Protocol, TypedDict
 
@@ -32,10 +32,18 @@ import httpx
 from langgraph.graph import END, START, StateGraph
 
 from finrag import grounding, scope
-from finrag.answer import REFUSAL, Answer
+from finrag.answer import REFUSAL, Answer, _usage_fields
 from finrag.config import Settings
-from finrag.models import ModelPreset, Usage, ollama_options, strip_thinking, unfinished
+from finrag.models import (
+    ModelPreset,
+    Usage,
+    model_parameters,
+    ollama_options,
+    strip_thinking,
+    unfinished,
+)
 from finrag.tools import ToolGuard
+from finrag.tracing import NULL
 
 SYSTEM = """You are a financial analyst assistant. You answer questions about the SEC
 filings of these companies only: {companies}.
@@ -64,6 +72,8 @@ class OllamaChat:
     preset: ModelPreset
     num_ctx: int = 8192  # tool results pile up across turns; still far below the default
     usage: Usage | None = None  # summed over every turn of one question
+    last_usage: Usage | None = None  # the latest turn, for its trace
+    last_reasoning: str | None = None
 
     def chat(self, messages: list[dict], tools: list[dict]) -> dict:
         body = {"model": self.preset.model_id, "messages": messages, "tools": tools,
@@ -75,6 +85,8 @@ class OllamaChat:
         r.raise_for_status()
         data = r.json()
         turn = Usage.from_ollama(self.preset.name, data)
+        self.last_usage = turn
+        self.last_reasoning = data["message"].get("thinking") or None
         self.usage = turn if self.usage is None else self.usage + turn
         # Only content and tool calls go back into the conversation: the reasoning
         # (msg["thinking"] with think=True) would fill the context turn after turn.
@@ -103,9 +115,19 @@ def cited_ids(text: str) -> list[str]:
     return sorted(set(re.findall(r"\[(S\d+)\]", text)), key=lambda s: int(s[1:]))
 
 
-def build_graph(sc: scope.Scope, guard: ToolGuard, model: ChatModel):
+def build_graph(sc: scope.Scope, guard: ToolGuard, model: ChatModel, obs=NULL,
+                gpu: str = "L4"):
+    """The agent loop. `obs` is the trace's agent observation (finrag.tracing): every
+    model turn becomes a generation and every tool call a `tool` sibling of it."""
+    preset = getattr(model, "preset", None)
+
     def scope_node(state: State) -> State:
-        decision = scope.check(state["question"], sc)
+        with obs.child("check-scope", "guardrail", input=state["question"]) as sp:
+            decision = scope.check(state["question"], sc)
+            sp.update(output={"in_scope": decision.in_scope, "reason": decision.reason,
+                              "tickers": sorted(decision.tickers)})
+            if not decision.in_scope:
+                sp.warn(decision.reason)
         if not decision.in_scope:
             return {"refused": True, "stage": "scope", "reason": decision.reason}
         system = SYSTEM.format(companies=", ".join(sorted(sc.corpus_tickers)),
@@ -115,28 +137,61 @@ def build_graph(sc: scope.Scope, guard: ToolGuard, model: ChatModel):
             {"role": "user", "content": state["question"]}]}
 
     def model_node(state: State) -> State:
-        reply = model.chat(state["messages"], guard.schemas())
-        msg = {"role": "assistant", "content": reply.get("content") or ""}
-        if reply.get("tool_calls"):
-            msg["tool_calls"] = reply["tool_calls"]
+        turn = sum(1 for m in state["messages"] if m["role"] == "assistant") + 1
+        with obs.child("generate-response", "generation",
+                       model=preset.model_id if preset else None,
+                       model_parameters=model_parameters(preset) if preset else None,
+                       input=_trace_messages(state["messages"])) as gen:
+            reply = model.chat(state["messages"], guard.schemas())
+            msg = {"role": "assistant", "content": reply.get("content") or ""}
+            if reply.get("tool_calls"):
+                msg["tool_calls"] = reply["tool_calls"]
+            use = getattr(model, "last_usage", None)
+            gen.update(output=_trace_messages([msg])[0],
+                       metadata={"turn": turn,
+                                 "reasoning": getattr(model, "last_reasoning", None)},
+                       **_usage_fields(use.as_dict(gpu) if use else None))
         return {"messages": [*state["messages"], msg]}
 
     def tools_node(state: State) -> State:
         out = []
         for call in state["messages"][-1]["tool_calls"]:
             fn = call.get("function", {})
+            name = fn.get("name", "")
+            # Stable observation names (no dynamic values): the guard's tools by name,
+            # anything else is "unknown-tool" with the requested name in metadata.
+            obs_name = name.replace("_", "-") if name in guard.tools else "unknown-tool"
+            with obs.child(obs_name, "tool", input=fn.get("arguments"),
+                           metadata={"tool_call_id": call.get("id"), "tool": name}) as t:
+                content = guard.run(name, fn.get("arguments"))
+                entry = guard.log[-1]
+                t.update(output=content, metadata={"tool_call_id": call.get("id"),
+                                                   "tool": name, "ms": entry.get("ms")})
+                if not entry["ok"]:
+                    t.warn(entry.get("error") or "refused by ToolGuard")
             # tool_call_id: OpenAI and Anthropic pair each result with its call.
-            out.append({"role": "tool", "tool_name": fn.get("name", ""),
-                        "tool_call_id": call.get("id"),
-                        "content": guard.run(fn.get("name", ""), fn.get("arguments"))})
+            out.append({"role": "tool", "tool_name": name, "tool_call_id": call.get("id"),
+                        "content": content})
         return {"messages": [*state["messages"], *out]}
 
     def limit_node(state: State) -> State:
-        return {"refused": True, "stage": "limit",
-                "reason": f"no answer within the budget of {guard.max_calls} tool calls"}
+        reason = f"no answer within the budget of {guard.max_calls} tool calls"
+        with obs.child("check-tool-budget", "guardrail",
+                       input={"max_calls": guard.max_calls, "calls": guard.calls}) as sp:
+            sp.update(output={"pass": False})
+            sp.warn(reason)
+        return {"refused": True, "stage": "limit", "reason": reason}
 
     def verify_node(state: State) -> State:
         text = state["messages"][-1]["content"].strip()
+        with obs.child("verify-answer", "guardrail", input=text) as sp:
+            result = _verify(text)
+            sp.update(output={"stage": result["stage"], "reason": result["reason"]})
+            if result["refused"]:
+                sp.warn(result["reason"])
+        return result
+
+    def _verify(text: str) -> State:
         if not text or REFUSAL.lower().rstrip(".") in text.lower():
             return {"refused": True, "stage": "model", "reason": "the model found no answer"}
         if not guard.evidence:
@@ -172,8 +227,8 @@ def build_graph(sc: scope.Scope, guard: ToolGuard, model: ChatModel):
 
 
 def run(question: str, sc: scope.Scope, guard: ToolGuard, model: ChatModel,
-        gpu: str = "L4") -> AgentAnswer:
-    graph = build_graph(sc, guard, model)
+        gpu: str = "L4", obs=NULL) -> AgentAnswer:
+    graph = build_graph(sc, guard, model, obs, gpu)
     # Each model turn is 2 graph steps (model + tools): the budget, not this limit,
     # is what normally stops a loop. This is the backstop.
     state = graph.invoke({"question": question},
@@ -190,27 +245,42 @@ def run(question: str, sc: scope.Scope, guard: ToolGuard, model: ChatModel,
 
 def traced_run(question: str, sc: scope.Scope, guard: ToolGuard, model: ChatModel,
                settings: Settings, tracer=None) -> AgentAnswer:
-    """run(), plus one Langfuse trace: a span per tool call (from the guard's audit log)
-    and one generation with the model's summed usage."""
-    trace = (tracer.trace("agent", question, tags=[settings.model, "agent"],
-                          metadata={"model_id": settings.preset.model_id,
-                                    "max_calls": guard.max_calls}) if tracer else None)
-    t0 = time.time()
-    a = run(question, sc, guard, model, gpu=settings.gpu)
-    if trace is None:
-        return a
-    for st in a.steps:
-        with trace.span(f"tool:{st['tool']}", input=st["args"]) as sp:
-            sp.output = {"ok": st["ok"], "error": st.get("error")}
-            sp.metadata = {"ms": st.get("ms")}
-            if not st["ok"]:
-                sp.warning = st.get("error") or "refused by ToolGuard"
-    trace.generation("llm (all turns)", t0, settings.preset.model_id, question, a.answer,
-                     a.usage, {"preset": settings.model})
-    trace.end({"answer": a.answer, "refused": a.refused, "stage": a.stage, "reason": a.reason},
-              tags=[f"stage:{a.stage}"], metadata={"usage": a.usage,
-                                                   "tool_calls": len(a.steps)})
+    """run() inside one Langfuse trace: an `agent` root, a generation per model turn,
+    a `tool` per call (siblings, in order), guardrails, and the outcome as scores."""
+    if tracer is None or not tracer.enabled:
+        return run(question, sc, guard, model, gpu=settings.gpu)
+    with tracer.root("answer-with-tools", "agent", input=question,
+                     tags=["agent", settings.model],
+                     metadata={"model_id": settings.preset.model_id,
+                               "max_calls": guard.max_calls}) as root:
+        a = run(question, sc, guard, model, gpu=settings.gpu, obs=root)
+        root.update(output={"answer": a.answer, "stage": a.stage, "reason": a.reason},
+                    metadata={"sources": a.sources, "usage": a.usage,
+                              "tool_calls": len(a.steps)})
+        root.score("outcome", a.stage, "CATEGORICAL", comment=a.reason)
+        root.score("refused", 1 if a.refused else 0, "BOOLEAN")
+        a.trace_id = root.trace_id
     return a
+
+
+def _trace_messages(messages: list[dict]) -> list[dict]:
+    """Role-labelled messages for Langfuse, tool-call arguments as JSON strings."""
+    out = []
+    for m in messages:
+        t = {"role": m["role"], "content": m.get("content") or ""}
+        if m.get("tool_calls"):
+            t["tool_calls"] = [{"id": c.get("id"), "type": "function", "function": {
+                "name": c.get("function", {}).get("name"),
+                "arguments": _json(c.get("function", {}).get("arguments"))}}
+                for c in m["tool_calls"]]
+        if m["role"] == "tool":
+            t["tool_call_id"] = m.get("tool_call_id")
+        out.append(t)
+    return out
+
+
+def _json(args) -> str:
+    return args if isinstance(args, str) else json.dumps(args or {})
 
 
 def _sources(guard: ToolGuard, ids: set[str] | None) -> list[dict]:
