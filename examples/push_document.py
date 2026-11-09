@@ -2,9 +2,10 @@
 
 What a GED export, a CRM job or an RPA bot does, in a few lines:
 
-    FINRAG_URL=https://<backend> FINRAG_INGEST_KEY=... \\
-        uv run python examples/push_document.py policy.txt --id pol-7 \\
+    uv run python examples/push_document.py policy.txt --id pol-7 \\
         --title "Counterparty risk policy" --groups risques --source ged
+
+FINRAG_URL and FINRAG_INGEST_KEY come from the environment, or from the repo's .env.
 
 The document is searchable at once, and ONLY by users in one of its groups (the SSO
 gateway gives each user their groups). Pushing the same --id again replaces it.
@@ -39,6 +40,10 @@ def main() -> None:
     p.add_argument("--source", default="connector", help="ged, crm, erp, rpa...")
     p.add_argument("--doc-url", default="", help="link back to the document in its system")
     a = p.parse_args()
+    try:  # inside the repo: finrag.config loads .env (environment variables still win)
+        import finrag.config  # noqa: F401
+    except ImportError:
+        pass
     url, key = os.environ.get("FINRAG_URL", ""), os.environ.get("FINRAG_INGEST_KEY", "")
     if not url or not key:
         sys.exit("set FINRAG_URL and FINRAG_INGEST_KEY")
