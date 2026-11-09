@@ -105,3 +105,10 @@ def agent_query(q: Query) -> dict:
     s, sc, store = _settings_for(q)
     guard, model = agent.from_settings(s, store, sc)  # a fresh guard per question
     return asdict(agent.traced_run(q.question, sc, guard, model, s, _tracer()))
+
+
+# GraphQL: the same handlers, typed (finrag.graphql_api). Imported last: it calls back
+# into this module's handlers.
+from finrag.graphql_api import router as graphql_router  # noqa: E402
+
+app.include_router(graphql_router, prefix="/graphql")
