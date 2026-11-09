@@ -12,6 +12,7 @@ a red number is a finding, and it is reported as one.
 from __future__ import annotations
 
 import json
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from statistics import mean
@@ -27,7 +28,7 @@ def load_suite(path: Path) -> list[dict]:
 
 
 def run(suite: list[dict], sc, store, settings, llm=None, with_llm: bool = True) -> dict:
-    rec, rr, refusal_rows, cases = [], [], [], []
+    rec, rr, refusal_rows, cases, seconds, usages = [], [], [], [], [], []
     for case in suite:
         if case["answerable"]:
             hits = store.search(case["question"], settings.top_k)
@@ -35,9 +36,18 @@ def run(suite: list[dict], sc, store, settings, llm=None, with_llm: bool = True)
             rec.append(metrics.recall_at_k(retrieved, case["gold"], 5))
             rr.append(metrics.reciprocal_rank(retrieved, case["gold"]))
         kwargs = {"llm": llm} if llm else {}
+        extra = {}
         if with_llm:
+            t0 = time.perf_counter()
             a = answer(case["question"], sc, store, settings, **kwargs)
+            dt = time.perf_counter() - t0
             refused, stage = a.refused, a.stage
+            seconds.append(dt)
+            extra = {"seconds": round(dt, 2)}
+            if a.usage:
+                usages.append(a.usage)
+                extra |= {k: a.usage[k] for k in
+                          ("prompt_tokens", "completion_tokens", "est_cost_usd")}
         else:
             # Retrieval-only mode: refusals decided by scope + evidence gate only.
             from finrag import scope
@@ -51,7 +61,7 @@ def run(suite: list[dict], sc, store, settings, llm=None, with_llm: bool = True)
                 stage = "evidence" if refused else "answered"
         refusal_rows.append((case["answerable"], refused))
         cases.append({"id": case["id"], "answerable": case["answerable"], "refused": refused,
-                      "stage": stage})
+                      "stage": stage, **extra})
 
     report = {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -60,10 +70,37 @@ def run(suite: list[dict], sc, store, settings, llm=None, with_llm: bool = True)
         "recall@5": round(mean(rec), 3) if rec else None,
         "mrr": round(mean(rr), 3) if rr else None,
         **metrics.refusal_scores(refusal_rows),
-        "cases": cases,
     }
+    if with_llm:
+        report |= _cost_and_latency(settings, seconds, usages)
+    report["cases"] = cases
     report["gates"] = {name: _gate(report.get(name), op, t) for name, (op, t) in GATES.items()}
     return report
+
+
+def _cost_and_latency(settings, seconds: list[float], usages: list[dict]) -> dict:
+    """Which model answered (digest = provenance), how fast, and at what GPU cost."""
+    p = settings.preset
+    srt = sorted(seconds)
+
+    def pct(q: float) -> float | None:
+        return round(srt[min(len(srt) - 1, int(q * len(srt)))], 2) if srt else None
+
+    total = sum(u["est_cost_usd"] for u in usages)
+    return {
+        "model": {"preset": p.name, "label": p.label, "ollama_tag": p.ollama_tag,
+                  "digest": p.digest, "gpu": settings.gpu},
+        # End-to-end per question (scope + retrieval + model + checks), refusals included.
+        "latency_s": {"mean": round(mean(seconds), 2) if seconds else None,
+                      "p50": pct(0.5), "p95": pct(0.95)},
+        "usage": {"llm_answers": len(usages),
+                  "prompt_tokens": sum(u["prompt_tokens"] for u in usages),
+                  "completion_tokens": sum(u["completion_tokens"] for u in usages),
+                  "llm_seconds": round(sum(u["llm_seconds"] for u in usages), 1),
+                  "est_cost_usd_total": round(total, 4),
+                  "est_cost_usd_per_llm_answer": round(total / len(usages), 5) if usages
+                  else None},
+    }
 
 
 def _gate(value, op: str, threshold: float) -> dict:

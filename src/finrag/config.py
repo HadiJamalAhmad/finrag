@@ -37,13 +37,22 @@ class Settings:
     collection: str = os.environ.get("FINRAG_COLLECTION", "sec_filings")
     embed_model: str = os.environ.get("FINRAG_EMBED_MODEL", "BAAI/bge-small-en-v1.5")
     ollama_url: str = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-    llm_model: str = os.environ.get("FINRAG_LLM", "llama3.2:3b")
+    # A preset name from finrag.models.MODEL_REGISTRY (llama-3b | qwen3-4b | mistral-24b).
+    model: str = os.environ.get("FINRAG_MODEL", "llama-3b")
+    # The GPU the model runs on, for the cost estimate (finrag.models.GPU_USD_PER_HOUR).
+    gpu: str = os.environ.get("FINRAG_GPU", "L4")
     top_k: int = int(os.environ.get("FINRAG_TOP_K", "5"))
     # Below this cosine score the best passage is not treated as evidence.
     # 0.72: calibrated on eval/suites/seed.jsonl, real 10-Ks (2026-11-07). Lowest
     # answerable best score 0.748, highest separable unanswerable 0.700. Tuned on the
     # seed suite, so NOT held-out; re-check on the Week 2 suite. See README "Status".
     min_score: float = float(os.environ.get("FINRAG_MIN_SCORE", "0.72"))
+
+    @property
+    def preset(self):
+        from finrag.models import get
+
+        return get(self.model)
 
     @property
     def raw_dir(self) -> Path:

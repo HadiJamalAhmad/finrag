@@ -1,0 +1,4 @@
+# Deploys from the repo root (Vercel Root Directory = web) upload ONLY web/:
+# never .env, data/ (filings, index) or the Python sources.
+/*
+!/web

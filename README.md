@@ -87,17 +87,18 @@ Live: **https://finrag-ten.vercel.app** (static page + proxy on Vercel, backend 
 
 ```
 browser ─► Vercel  web/index.html, web/api/{query,agent}.js   (adds x-api-key server-side)
-        ─► Modal   deploy/modal_app.py: finrag.api + Ollama llama3.2:3b on one T4 GPU
+        ─► Modal   deploy/modal_app.py: finrag.api + Ollama, 3 models, one 24 GB GPU (L4 / A10G)
 ```
 
 - **Backend (Modal).** The image bakes in the index (`data/qdrant`), the manifest, the
   SEC company list, the cached company facts (`data/facts`), the bge-small embedder and
-  the llama3.2:3b weights. Same model as local runs, so eval numbers stay comparable.
+  the three models of `deploy/models.lock`. The build fails if a pulled digest differs.
   SEC is never called from Modal: the User-Agent stays in your `.env`.
 - **Auth.** Every route but `/health` needs `x-api-key` (Modal secret `finrag-api`).
   Only the Vercel functions hold the key (env `FINRAG_API_KEY`, `FINRAG_BACKEND_URL`).
 - **Cost.** At most one container; it scales to zero after 5 idle minutes. A cold start
-  (GPU + model load) takes about 1.5 minutes; a warm answer about 20 seconds.
+  (GPU + model load) takes 1.5 to 2 minutes; a model not yet loaded adds its load time.
+  Every answer reports its tokens, model seconds and estimated GPU cost.
 - **Redeploy** after any re-ingest:
 
 ```bash
@@ -111,6 +112,50 @@ market risk answered from Item 7A (the Week 1 cross-reference fix); Tesla refuse
 `scope`; the NVIDIA share-price forecast passes the evidence gate (0.799) and is
 refused at `model`. The agent route works but llama3.2:3b sometimes calls `calculate`
 before fetching any figure; the guard refuses it and the answer is a refusal.
+
+## Three models (2026-11-09)
+
+Like JobHack: a registry of open-weight models (`src/finrag/models.py`), each pinned by
+digest (`deploy/models.lock`), chosen by `FINRAG_MODEL`, `--model`, or per request in the
+API and on the web page. No question or filing passage leaves our infrastructure.
+
+| Preset | Model | Context / output cap | Notes |
+|---|---|---|---|
+| `llama-3b` (default) | Meta Llama 3.2 3B | 4096 / 1024 | the baseline of every earlier number |
+| `qwen3-4b` | Alibaba Qwen3 4B | 12288 / 8192 | always reasons; `think: true` keeps the reasoning out of the answer |
+| `mistral-24b` | Mistral Small 3.2 24B | 4096 / 1024 | ~15 GB at 4-bit: needs a 24 GB GPU |
+
+**Bake-off** (`uv run modal run deploy/modal_app.py::bakeoff_all`): the seed suite, full
+pipeline with the LLM, one GPU container per model.
+
+| Model | GPU | Gates | False accept | Over-refusal | p50 | p95 | Output tokens | Est. cost / LLM answer |
+|---|---|---|---|---|---|---|---|---|
+| Llama 3.2 3B | L4 | all PASS | 0.00 | **0.083** (1/12) | **3.4 s** | 47 s | 5,273 | **$0.0020** |
+| Mistral Small 24B | A10G | all PASS | 0.00 | 0.167 (2/12) | 7.9 s | 43 s | 4,134 | $0.0044 |
+| Qwen3 4B | A10G | all PASS | 0.00 | 0.250 (3/12) | 10.7 s | 80 s | 35,533 | $0.0085 |
+
+Read with care:
+- **20 cases, tuned on the same seed suite, not held-out.** One case moves over-refusal
+  by 0.083. It ranks the models on this suite; it does not settle the choice.
+- **Not the same GPU** (Modal had no L4 free for two runs): latency and cost compare
+  only roughly. Cost = model seconds x the GPU's list price; idle and cold starts excluded.
+  p95 includes the first call, which loads the model.
+- **False accepts 0.00 for all three**: the NVIDIA share-price forecast passes the
+  evidence gate (0.799) and every model refuses it at `model`. Retrieval-only mode
+  (scope + evidence gate only) still reports 0.125 with `min_score` 0.72.
+- Over-refusals by stage: Llama: `nvda-datacenter` (numbers). Mistral: `nvda-export`
+  (numbers), `jpm-legal` (model). Qwen: `aapl-net-sales-drivers` and `nvda-export`
+  (model), `msft-ai-risk` (numbers). Each is a case to read, not a number to tune away.
+- **Qwen3 4B reasons on every answer**: 7x Llama's output tokens, 4x its cost, the
+  slowest. First live run (before `think: true` and the larger context): 6,891 output
+  tokens for one answer, then a refusal. Same lesson as JobHack L84.
+- **Found on the live site, not in the suite:** "Who supplies Apple?" is refused at
+  `evidence` (0.713 < 0.72). Terse answerable questions sit near the threshold: add such
+  cases to the Week 2 suite before touching `min_score`.
+
+The default stays `llama-3b`: best on this suite, cheapest, fastest. Mistral is the
+candidate to re-measure on the held-out Week 2 suite (and in the agent, where a 3B model
+struggles with multi-step tool use).
 
 ## Evaluation
 

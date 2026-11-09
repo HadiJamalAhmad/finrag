@@ -12,6 +12,11 @@ export async function forward(req, res, path) {
   if (question.length < 3 || question.length > 500) {
     return res.status(400).json({ detail: "question must be 3 to 500 characters" });
   }
+  // A preset name (llama-3b | qwen3-4b | mistral-24b); the backend validates it (422).
+  const model = typeof req.body?.model === "string" ? req.body.model : undefined;
+  if (model !== undefined && !/^[a-z0-9.-]{1,40}$/.test(model)) {
+    return res.status(400).json({ detail: "invalid model name" });
+  }
   const base = process.env.FINRAG_BACKEND_URL;
   const key = process.env.FINRAG_API_KEY;
   if (!base || !key) {
@@ -21,7 +26,7 @@ export async function forward(req, res, path) {
     const upstream = await fetch(`${base.replace(/\/$/, "")}${path}`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": key },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify(model ? { question, model } : { question }),
       signal: AbortSignal.timeout(290_000),
     });
     const text = await upstream.text();
