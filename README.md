@@ -178,15 +178,21 @@ Reference connector: [`examples/push_document.py`](examples/push_document.py).
   Without the ingest key configured, ingestion is off (503), never open.
 - **Nothing public by omission:** a document must name at least one group. The same id
   again replaces the document (idempotent connector).
-- **Identity:** `groups` on `/query` and `/agent` come from the SSO gateway in
-  production (OIDC / SAML groups). The demo site lets you pick a *simulated* profile
-  (branch staff, risk department), mapped to groups server-side by the proxy.
+- **Identity: Clerk sign-in** (optional; signed out = public filings only). The browser
+  sends its Clerk session token; the backend verifies it locally (RS256 against Clerk's
+  JWKS: signature, expiry, issuer, authorised origin) and reads the user's groups from
+  Clerk (`public_metadata.groups`, set by an admin). Groups never come from the request
+  body; a bad token is a 401, never "public by fallback" (`src/finrag/auth.py`). In a
+  bank, the same claims would come from the enterprise SSO (Entra ID via OIDC / SAML).
+  Demo accounts (Clerk test addresses, code 424242): `branch+clerk_test@example.com`
+  (group agence) and `risk+clerk_test@example.com` (group risques).
 - **Demo limits, stated:** the live demo index lives in the backend container (a pushed
   document lasts until it scales down); production would use a Qdrant server. The demo
   document (`examples/demo_risk_policy.txt`) is fictitious.
 
-Measured on the live site (2026-11-09): as branch staff the internal policy stays
-invisible (refused); as the risk department the answer cites it (8% of CET1). On this
+Measured on the live site (2026-11-09), signed in through Clerk: as branch staff the
+internal policy stays invisible (refused); as the risk department the answer cites it
+(8% of CET1). On this
 question Claude Haiku answered 3 times out of 3, GPT-6 Luna once out of 3 (it falls back
 to the refusal phrase when internal and public passages are mixed): a reason to measure
 models per use case.
