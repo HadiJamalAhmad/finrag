@@ -9,7 +9,7 @@ module in `src/finrag/` with its own tests. Read `README.md` for the pipeline an
 uv sync --extra dev
 uv run pytest -q          # offline; never hits SEC, Ollama or the embedder
 uv run ruff check .       # line-length 100, E,F,I,UP
-uv run finrag fetch|ingest|ask|eval
+uv run finrag fetch|ingest|ask|agent|eval
 ```
 
 Always `uv run`. Python 3.12.
@@ -25,6 +25,10 @@ Always `uv run`. Python 3.12.
 - **Numeric grounding runs on every answer.** Do not bypass it for "obvious" figures.
 - **Eval gold is metadata** (ticker, form, section), never chunk ids, so the suite
   survives re-chunking. Re-ingest after any change to parse.py or chunk.py.
+- **The agent's tools are read-only and go through `ToolGuard`.** A new tool needs an
+  argument schema, a guard test and a test for each way it can refuse. Never let the
+  model call a function directly, and never let `calculate` accept operands that no
+  tool returned.
 - **Tests stay offline.** Use fixtures (`tests/fixtures/`), MockTransport, fake stores.
 - Ollama: always pass `num_ctx` (recent versions default to a huge context and the
   machine runs out of memory). This PC is often short of RAM: stop other heavy

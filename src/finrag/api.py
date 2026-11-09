@@ -1,4 +1,4 @@
-"""HTTP API: POST /query, GET /health.  Run: uv run uvicorn finrag.api:app --reload"""
+"""HTTP API: POST /query, POST /agent, GET /health.  Run: uv run uvicorn finrag.api:app --reload"""
 
 from __future__ import annotations
 
@@ -36,3 +36,13 @@ def health() -> dict:
 def query(q: Query) -> dict:
     s, sc, store = _deps()
     return asdict(answer(q.question, sc, store, s))
+
+
+@app.post("/agent")
+def agent_query(q: Query) -> dict:
+    """Answer with tools. The response includes the audit log of every tool call."""
+    from finrag import agent
+
+    s, sc, store = _deps()
+    guard, model = agent.from_settings(s, store, sc)  # a fresh guard per question
+    return asdict(agent.run(q.question, sc, guard, model))

@@ -4,6 +4,7 @@ Endpoints (documented at https://www.sec.gov/edgar/sec-api-documentation):
 - https://www.sec.gov/files/company_tickers.json      ticker -> CIK, for every listed company
 - https://data.sec.gov/submissions/CIK##########.json  a company's recent filings
 - https://www.sec.gov/Archives/edgar/data/<cik>/<accession>/<primary document>
+- https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json  reported XBRL figures
 
 SEC rules for automated access: a User-Agent naming you and a contact address,
 and at most 10 requests per second. Both are enforced here, not left to the caller.
@@ -22,6 +23,7 @@ import httpx
 TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik:010d}.json"
 ARCHIVE_URL = "https://www.sec.gov/Archives/edgar/data/{cik}/{acc}/{doc}"
+FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json"
 MIN_INTERVAL = 0.12  # seconds between requests: stays under the 10 req/s limit
 
 
@@ -123,6 +125,10 @@ class EdgarClient:
 
     def download(self, filing: Filing) -> str:
         return self._get(filing.url).text
+
+    def company_facts(self, cik: int) -> dict:
+        """Every XBRL figure a company reported (us-gaap concepts, by period)."""
+        return self._get(FACTS_URL.format(cik=cik)).json()
 
 
 def cik_for(tickers_json: dict, ticker: str) -> tuple[int, str]:

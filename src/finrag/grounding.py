@@ -49,6 +49,11 @@ def _matches(value: float, evidence: list[float]) -> bool:
     return False
 
 
+def value_in(value: float, evidence_texts: list[str]) -> bool:
+    """True if `value` appears in the evidence at some power-of-1000 scale."""
+    return _matches(value, [v for t in evidence_texts for _, v in numbers(t)])
+
+
 def check(answer: str, evidence_texts: list[str]) -> GroundingResult:
     # Citation markers are not figures.
     cleaned = re.sub(r"\[\d+\]", " ", answer)
