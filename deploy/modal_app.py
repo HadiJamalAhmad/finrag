@@ -215,7 +215,7 @@ def run_suite(model: str, suite_jsonl: str, gpu: str) -> dict:
 
     s = replace(get_settings(), model=model, gpu=gpu)
     suite = [json.loads(ln) for ln in suite_jsonl.splitlines() if ln.strip()]
-    tracer = Tracer.from_settings(s, environment="eval")
+    tracer = Tracer.from_settings(s, environment="eval", channel="eval")
     report = evaluate.run(suite, _scope(s), Store(s), s, with_llm=True, tracer=tracer)
     tracer.flush()  # the container ends with the function: send every trace and score
     return report

@@ -254,9 +254,9 @@ def traced_run(question: str, sc: scope.Scope, guard: ToolGuard, model: ChatMode
                      metadata={"model_id": settings.preset.model_id,
                                "max_calls": guard.max_calls}) as root:
         a = run(question, sc, guard, model, gpu=settings.gpu, obs=root)
-        root.update(output={"answer": a.answer, "stage": a.stage, "reason": a.reason},
-                    metadata={"sources": a.sources, "usage": a.usage,
-                              "tool_calls": len(a.steps)})
+        root.update(output=a.answer,
+                    metadata={"stage": a.stage, "reason": a.reason, "sources": a.sources,
+                              "usage": a.usage, "tool_calls": len(a.steps)})
         root.score("outcome", a.stage, "CATEGORICAL", comment=a.reason)
         root.score("refused", 1 if a.refused else 0, "BOOLEAN")
         a.trace_id = root.trace_id

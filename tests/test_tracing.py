@@ -21,7 +21,9 @@ from finrag.config import Settings
 from finrag.tools import build_guard
 from finrag.tracing import NULL, Tracer
 
-S = Settings(sec_user_agent="x y@z", min_score=0.55, gpu="L4")
+# Keys pinned empty: the developer's .env must never turn a test into a live call.
+S = Settings(sec_user_agent="x y@z", min_score=0.55, gpu="L4", langfuse_public_key="",
+             langfuse_secret_key="")
 GEN = ans.Generation("A single supplier in Taiwan [1].",
                      models.Usage("llama-3b", 900, 40, 4.5, 1), "stop", "Item 1A says...")
 
@@ -100,7 +102,9 @@ def test_an_answer_is_one_trace_typed_stage_by_stage(sc):
         ("check-figures", "guardrail")]
     assert attr(root, "observation.type") == "chain"
     assert attr(root, "observation.input") == "Who supplies Acme?"
-    assert attr(root, "observation.output")["stage"] == "answered"
+    # The root shows the answer at a glance; the stage is metadata (and a score).
+    assert attr(root, "observation.output") == GEN.text
+    assert attr(root, "observation.metadata.stage") == "answered"
     # Tags set at creation, on every observation; environment separates test traffic.
     assert set(root.attributes["langfuse.trace.tags"]) == {"finrag", "pipeline", "llama-3b"}
     assert all(s.attributes["langfuse.environment"] == "test" for s in spans)
@@ -145,6 +149,14 @@ def test_a_refusal_warns_at_its_stage_and_is_scored_not_tagged(sc):
         "langfuse.trace.tags"]
 
 
+def test_the_channel_is_a_tag_set_at_creation(sc):
+    cap = Capture()
+    cap.tracer.channel = "api"
+    ans.answer("Who supplies Acme?", sc, FakeStore(), S, llm=lambda p, s: GEN, tracer=cap.tracer)
+    root = by_name(cap.spans(), "answer-question")[0]
+    assert "api" in root.attributes["langfuse.trace.tags"]
+
+
 def test_tracing_failures_never_break_the_answer(sc):
     cap = Capture(fail_http=True)  # scores cannot be sent
     a = ans.answer("Who supplies Acme?", sc, FakeStore(), S, llm=lambda p, s: GEN,
@@ -161,6 +173,7 @@ def test_eval_traces_go_to_the_eval_environment_with_a_correct_score(sc):
     evaluate.run(suite, sc, FakeStore(), S, llm=lambda p, s: GEN, tracer=cap.tracer)
     root = by_name(cap.spans(), "answer-question")[0]
     assert root.attributes["langfuse.environment"] == "eval"
+    assert attr(root, "observation.metadata.expected")["section"] == "1A"  # ground truth
     assert "eval" in root.attributes["langfuse.trace.tags"]
     assert attr(root, "observation.metadata.case") == "acme-supplier"
     assert cap.scores()["correct"]["value"] == 1  # answerable and answered

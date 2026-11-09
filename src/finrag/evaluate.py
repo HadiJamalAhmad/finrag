@@ -41,7 +41,10 @@ def run(suite: list[dict], sc, store, settings, llm=None, with_llm: bool = True,
             kwargs["tracer"] = tracer
             kwargs["trace_context"] = {"tags": ["eval"], "environment": "eval",
                                        "metadata": {"case": case["id"],
-                                                    "answerable": case["answerable"]}}
+                                                    "answerable": case["answerable"],
+                                                    # ground truth, for evaluators
+                                                    "expected": case.get("gold")
+                                                    or {"refuse": case.get("why")}}}
         extra = {}
         if with_llm:
             t0 = time.perf_counter()
