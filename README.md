@@ -30,6 +30,40 @@ SEC EDGAR (free, official) ─► edgar.py   download 10-K / 10-Q, manifest
 question ─► scope ─► retrieve ─► evidence gate ─► llama3.2:3b (Ollama) ─► numeric check ─► answer + sources
 ```
 
+## Agent mode: tools, under a guard (`finrag agent`)
+
+Some questions need several steps: "How much did Microsoft's revenue grow in fiscal
+2026?" needs two reported figures and a calculation. In agent mode the model plans
+those steps by calling tools, in a LangGraph loop (`agent.py`):
+
+```
+START ─► scope ─(out of scope)─► refused: scope
+           │
+           ▼
+         model ─(tool calls)─► tools ─► model …      every call goes through ToolGuard
+           │  └─(budget spent)─► refused: limit
+           ▼
+         verify ─► answer, or refused: model / evidence / numbers
+```
+
+| Tool (read-only) | What it returns |
+|---|---|
+| `search_filings(query, ticker?, fiscal_year?)` | Filing passages above the evidence gate, each with a source id |
+| `get_financial_fact(ticker, metric, fiscal_year)` | A figure the company reported in its 10-K, from SEC XBRL data (full-year only, latest filing wins) |
+| `calculate(expression)` | Arithmetic **only on figures a tool already returned**; any other operand is refused |
+
+`ToolGuard` (`tools.py`) sits between the model and the tools: an allowlist of tool
+names, pydantic validation of every argument, companies limited to the corpus, a
+budget of tool calls per question, and an audit log of every proposal (accepted or
+refused, with arguments and latency), returned with the answer. The model sits behind
+a two-method `ChatModel` interface, so Mistral, OpenAI or Claude can replace Ollama
+without touching the graph.
+
+```bash
+uv run finrag agent "How much did Microsoft's revenue grow in fiscal 2026?"
+# POST /agent  {"question": "..."}   -> answer, stage, sources, steps (audit log)
+```
+
 ## Quick start
 
 ```bash
@@ -57,6 +91,33 @@ the corpus, a year not covered, a forecast, and a detail no filing contains.
 
 Gates, written before the first run: recall@5 ≥ 0.80, MRR ≥ 0.60, false accept rate ≤ 0.10.
 `finrag eval` exits non-zero when a gate fails.
+
+## Status (2026-11-09): agent mode
+
+Added: `agent.py` (LangGraph), `tools.py` (three tools + ToolGuard), SEC XBRL facts in
+`edgar.py`, `finrag agent`, `POST /agent`. 46 offline tests (one per refusal stage,
+every guard rule), ruff clean.
+
+Live, on the real corpus (AAPL, MSFT, NVDA, JPM 10-Ks):
+- **Tools: correct.** Reported revenue matches the 10-Ks (Apple FY2025 $416,161M,
+  Microsoft FY2026 $331,839M, NVIDIA FY2026 $215,938M, JPMorgan 2025 $182,447M); a
+  TSLA call is refused by the guard.
+- **Single-figure question: answered and grounded** ("Apple's revenue in fiscal 2025"),
+  but without the [S1] citation the prompt asks for.
+- **Multi-step question: refused, not answered.** llama3.2:3b wrote tool calls *inside*
+  the calculator's argument; the guard rejected the call, then the model answered
+  from memory and the evidence stage refused it. Safe, but useless.
+- **Search question: over-refused.** The right Apple passage was retrieved; the 3B
+  model still replied "I don't know".
+
+Reading: the guardrails hold (no ungrounded answer got through), and the bottleneck
+is the 3B model's tool planning. Next: an agent eval suite (expected tools + gold
+figures, answer rate and false-accept rate, gates set before the first run), then the
+same suite on a larger open-weight model and on a hosted one through `ChatModel`, plus
+traces in Langfuse.
+
+Week 1, retrieval-only on the real corpus (2026-11-07, `min_score` 0.72): recall@5
+0.917, MRR 0.861, false accept rate **0.125 (gate ≤ 0.10: FAIL)**.
 
 ## Status (2026-11-07): starting point
 

@@ -71,6 +71,24 @@ def cmd_ask(args, s) -> None:
         print("  ungrounded figures:", ", ".join(a.ungrounded_numbers))
 
 
+def cmd_agent(args, s) -> None:
+    from finrag import agent
+    from finrag.store import Store
+
+    sc = _scope(s)
+    guard, model = agent.from_settings(s, Store(s), sc, args.max_calls)
+    a = agent.run(args.question, sc, guard, model)
+    print(a.answer)
+    print(f"\n[{a.stage}] {a.reason}")
+    print(f"tool calls ({len(a.steps)}/{args.max_calls}):")
+    for st in a.steps:
+        outcome = "ok" if st["ok"] else f"REFUSED: {st['error']}"
+        print(f"  {st['tool']}({st['args']}) -> {outcome}  {st['ms']} ms")
+    for src in a.sources:
+        print(f"  [{src['n']}] {src['tool']}: {src['ticker']} {src['form']} {src['period']} "
+              f"{src['section_title']}")
+
+
 def cmd_eval(args, s) -> None:
     from finrag import evaluate
     from finrag.store import Store
@@ -96,13 +114,16 @@ def main() -> None:
     sub.add_parser("ingest", help="parse, chunk, embed and index the downloaded filings")
     a = sub.add_parser("ask")
     a.add_argument("question")
+    g = sub.add_parser("agent", help="answer with tools (search, reported figures, calculator)")
+    g.add_argument("question")
+    g.add_argument("--max-calls", type=int, default=6, help="tool call budget")
     e = sub.add_parser("eval")
     e.add_argument("suite")
     e.add_argument("--out", default="eval/reports/latest.json")
     e.add_argument("--retrieval-only", action="store_true", help="skip the LLM (fast)")
     args = p.parse_args()
-    {"fetch": cmd_fetch, "ingest": cmd_ingest, "ask": cmd_ask, "eval": cmd_eval}[args.cmd](
-        args, get_settings())
+    {"fetch": cmd_fetch, "ingest": cmd_ingest, "ask": cmd_ask, "agent": cmd_agent,
+     "eval": cmd_eval}[args.cmd](args, get_settings())
 
 
 if __name__ == "__main__":

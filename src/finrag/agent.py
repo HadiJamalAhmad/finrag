@@ -1,0 +1,187 @@
+"""An agent that answers with tools: scope -> (model <-> guarded tools)* -> verify.
+
+The plain answer path (answer.py) retrieves once and answers. Some questions need
+more: "How much did Microsoft's revenue grow in fiscal 2025?" needs two reported
+figures and a calculation. Here the model plans those steps itself by calling
+tools, and LangGraph runs the loop:
+
+    START -> scope --out of scope--> END (refused: scope)
+               |
+               v
+             model --tool calls--> tools --> model ...   (ToolGuard: allowlist,
+               |  +--budget spent--> limit -> END          validation, budget, log)
+               v
+             verify -> END   (refusal phrase / no evidence / numeric grounding)
+
+The guardrails do not trust the model: the scope check runs before it, every tool
+call goes through ToolGuard, and every figure in the final answer must appear in
+what the tools returned. Each refusal names its stage, like answer.py.
+
+The model sits behind a two-method interface (`ChatModel`), so a hosted model
+(Mistral, OpenAI, Claude) can replace Ollama without touching the graph.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from typing import Protocol, TypedDict
+
+import httpx
+from langgraph.graph import END, START, StateGraph
+
+from finrag import grounding, scope
+from finrag.answer import REFUSAL, Answer
+from finrag.config import Settings
+from finrag.tools import ToolGuard
+
+SYSTEM = """You are a financial analyst assistant. You answer questions about the SEC
+filings of these companies only: {companies}.
+
+Rules:
+- Never answer from memory. Use the tools to find every fact and figure.
+- Use get_financial_fact for reported figures (revenue, net income...), search_filings
+  for anything written in the filings (risks, strategy, legal matters...), and
+  calculate for any growth rate, difference or ratio. Never do arithmetic yourself.
+- Work one step at a time: first get each figure, then call calculate with the plain
+  numbers the tools returned, e.g. (331839000000 - 281724000000) / 281724000000 * 100.
+  A tool cannot be called inside another tool's arguments.
+- Cite the source id of every fact, like [S1] or [S2][S3].
+- Copy figures exactly as the tools return them.
+- If the tools do not give you the answer, reply exactly: {refusal}"""
+
+
+class ChatModel(Protocol):
+    def chat(self, messages: list[dict], tools: list[dict]) -> dict:
+        """Return one assistant message: {"role", "content", optional "tool_calls"}."""
+
+
+@dataclass
+class OllamaChat:
+    url: str
+    model: str
+    num_ctx: int = 8192  # tool results pile up across turns; still far below the default
+
+    def chat(self, messages: list[dict], tools: list[dict]) -> dict:
+        r = httpx.post(f"{self.url}/api/chat", json={
+            "model": self.model, "messages": messages, "tools": tools, "stream": False,
+            # num_ctx explicitly, always: see CLAUDE.md (the default exhausts RAM here).
+            "options": {"temperature": 0, "num_ctx": self.num_ctx}}, timeout=300.0)
+        r.raise_for_status()
+        return r.json()["message"]
+
+
+@dataclass
+class AgentAnswer(Answer):
+    steps: list[dict] = field(default_factory=list)  # ToolGuard audit log
+
+
+class State(TypedDict, total=False):
+    question: str
+    messages: list[dict]
+    refused: bool
+    stage: str
+    reason: str
+    answer: str
+
+
+def cited_ids(text: str) -> list[str]:
+    return sorted(set(re.findall(r"\[(S\d+)\]", text)), key=lambda s: int(s[1:]))
+
+
+def build_graph(sc: scope.Scope, guard: ToolGuard, model: ChatModel):
+    def scope_node(state: State) -> State:
+        decision = scope.check(state["question"], sc)
+        if not decision.in_scope:
+            return {"refused": True, "stage": "scope", "reason": decision.reason}
+        system = SYSTEM.format(companies=", ".join(sorted(sc.corpus_tickers)),
+                               refusal=REFUSAL)
+        return {"refused": False, "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": state["question"]}]}
+
+    def model_node(state: State) -> State:
+        reply = model.chat(state["messages"], guard.schemas())
+        msg = {"role": "assistant", "content": reply.get("content") or ""}
+        if reply.get("tool_calls"):
+            msg["tool_calls"] = reply["tool_calls"]
+        return {"messages": [*state["messages"], msg]}
+
+    def tools_node(state: State) -> State:
+        out = []
+        for call in state["messages"][-1]["tool_calls"]:
+            fn = call.get("function", {})
+            out.append({"role": "tool", "tool_name": fn.get("name", ""),
+                        "content": guard.run(fn.get("name", ""), fn.get("arguments"))})
+        return {"messages": [*state["messages"], *out]}
+
+    def limit_node(state: State) -> State:
+        return {"refused": True, "stage": "limit",
+                "reason": f"no answer within the budget of {guard.max_calls} tool calls"}
+
+    def verify_node(state: State) -> State:
+        text = state["messages"][-1]["content"].strip()
+        if not text or REFUSAL.lower().rstrip(".") in text.lower():
+            return {"refused": True, "stage": "model", "reason": "the model found no answer"}
+        if not guard.evidence:
+            return {"refused": True, "stage": "evidence",
+                    "reason": "the model answered without any tool result to rely on"}
+        ids = set(cited_ids(text)) or {ev.id for ev in guard.evidence}
+        check = grounding.check(text, [ev.text for ev in guard.evidence if ev.id in ids])
+        if not check.grounded:
+            return {"refused": True, "stage": "numbers",
+                    "reason": "figures not found in the cited tool results: "
+                              + ", ".join(check.ungrounded)}
+        return {"refused": False, "stage": "answered", "reason": "ok", "answer": text}
+
+    def after_scope(state: State) -> str:
+        return END if state["refused"] else "model"
+
+    def after_model(state: State) -> str:
+        if not state["messages"][-1].get("tool_calls"):
+            return "verify"
+        return "limit" if guard.exhausted else "tools"
+
+    g = StateGraph(State)
+    for name, fn in [("scope", scope_node), ("model", model_node), ("tools", tools_node),
+                     ("limit", limit_node), ("verify", verify_node)]:
+        g.add_node(name, fn)
+    g.add_edge(START, "scope")
+    g.add_conditional_edges("scope", after_scope, ["model", END])
+    g.add_conditional_edges("model", after_model, ["tools", "limit", "verify"])
+    g.add_edge("tools", "model")
+    g.add_edge("limit", END)
+    g.add_edge("verify", END)
+    return g.compile()
+
+
+def run(question: str, sc: scope.Scope, guard: ToolGuard, model: ChatModel) -> AgentAnswer:
+    graph = build_graph(sc, guard, model)
+    # Each model turn is 2 graph steps (model + tools): the budget, not this limit,
+    # is what normally stops a loop. This is the backstop.
+    state = graph.invoke({"question": question},
+                         {"recursion_limit": 2 * guard.max_calls + 10})
+    if state["refused"]:
+        return AgentAnswer(question, REFUSAL, True, state["stage"], state["reason"],
+                           _sources(guard, None), [], guard.log)
+    ids = cited_ids(state["answer"])
+    return AgentAnswer(question, state["answer"], False, "answered", "ok",
+                       _sources(guard, set(ids) or None), [], guard.log)
+
+
+def _sources(guard: ToolGuard, ids: set[str] | None) -> list[dict]:
+    return [{"n": ev.id, "tool": ev.tool, **ev.source}
+            for ev in guard.evidence if ids is None or ev.id in ids]
+
+
+def from_settings(settings: Settings, store, sc: scope.Scope, max_calls: int = 6):
+    """Wire the real store, SEC facts and Ollama. Returns (guard, model)."""
+    from finrag import edgar
+    from finrag.tools import build_guard, facts_loader
+
+    filings = edgar.load_manifest(settings.manifest_path)
+    ciks = {f.ticker: f.cik for f in filings}
+    load = facts_loader(lambda: edgar.EdgarClient(settings.sec_user_agent), ciks,
+                        settings.data_dir / "facts")
+    guard = build_guard(store, load, ciks, settings.top_k, settings.min_score, max_calls)
+    return guard, OllamaChat(settings.ollama_url, settings.llm_model)
