@@ -86,21 +86,24 @@ def generate(prompt: str, settings: Settings) -> Generation:
 
 
 def answer(question: str, sc: scope.Scope, store, settings: Settings, llm=generate,
-           tracer=None, trace_context: dict | None = None) -> Answer:
+           tracer=None, trace_context: dict | None = None,
+           groups: list[str] | None = None) -> Answer:
     """The answer path. With a tracer (finrag.tracing): one Langfuse trace per question.
 
     trace_context: extra "tags", "metadata" and "environment" for the trace (eval runs).
+    groups: the user's groups (from SSO in production). None = no identity: public
+    documents only (the store's default). Restricted documents never reach the model.
     """
     ctx = trace_context or {}
     if tracer is None or not tracer.enabled:
-        return _answer(question, sc, store, settings, llm, NULL)
+        return _answer(question, sc, store, settings, llm, NULL, groups)
     with tracer.root("answer-question", "chain", input=question,
                      tags=["pipeline", settings.model, *ctx.get("tags", [])],
                      metadata={"model_id": settings.preset.model_id,
                                "min_score": settings.min_score, "top_k": settings.top_k,
                                **ctx.get("metadata", {})},
                      environment=ctx.get("environment")) as root:
-        a = _answer(question, sc, store, settings, llm, root)
+        a = _answer(question, sc, store, settings, llm, root, groups)
         # What a reviewer needs at a glance; sources and usage go to metadata.
         # The answer itself, at a glance; the deciding stage is in metadata and scores.
         root.update(output=a.answer,
@@ -113,7 +116,8 @@ def answer(question: str, sc: scope.Scope, store, settings: Settings, llm=genera
     return a
 
 
-def _answer(question: str, sc: scope.Scope, store, settings: Settings, llm, obs) -> Answer:
+def _answer(question: str, sc: scope.Scope, store, settings: Settings, llm, obs,
+            groups: list[str] | None = None) -> Answer:
     with obs.child("check-scope", "guardrail", input=question) as sp:
         decision = scope.check(question, sc)
         sp.update(output={"in_scope": decision.in_scope, "tickers": sorted(decision.tickers),
@@ -124,7 +128,8 @@ def _answer(question: str, sc: scope.Scope, store, settings: Settings, llm, obs)
         return Answer(question, REFUSAL, True, "scope", decision.reason)
 
     with obs.child("retrieve-passages", "retriever", input=question) as sp:
-        hits = store.search(question, settings.top_k, decision.tickers, decision.years)
+        extra = {"groups": frozenset(groups)} if groups is not None else {}
+        hits = store.search(question, settings.top_k, decision.tickers, decision.years, **extra)
         sources = [{"n": i, "score": round(s, 3), **{k: p[k] for k in
                    ("ticker", "form", "period", "section", "section_title", "url")}}
                    for i, (s, p) in enumerate(hits, 1)]
@@ -133,7 +138,7 @@ def _answer(question: str, sc: scope.Scope, store, settings: Settings, llm, obs)
                            "score": round(s, 3), "text": p["text"]}
                           for i, (s, p) in enumerate(hits, 1)],
                   metadata={"k": settings.top_k, "tickers": sorted(decision.tickers),
-                            "years": sorted(decision.years)})
+                            "years": sorted(decision.years), "groups": sorted(groups or [])})
     best = hits[0][0] if hits else None
     passed = best is not None and best >= settings.min_score
     with obs.child("check-evidence", "guardrail",

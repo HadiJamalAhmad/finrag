@@ -1,0 +1,7 @@
+Example Bank - Internal counterparty risk policy. FICTITIOUS DOCUMENT, created for a software demonstration: it describes no real bank.
+
+Single-counterparty limit. Exposure to a single counterparty must not exceed 8% of the bank's CET1 capital.
+
+Escalation. Any exposure above 5% of CET1 must be escalated to the Risk Committee within two business days.
+
+Review. The Risk Department reviews these limits every quarter and reports breaches to the Board Risk Committee.

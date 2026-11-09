@@ -288,7 +288,8 @@ def _sources(guard: ToolGuard, ids: set[str] | None) -> list[dict]:
             for ev in guard.evidence if ids is None or ev.id in ids]
 
 
-def from_settings(settings: Settings, store, sc: scope.Scope, max_calls: int = 6):
+def from_settings(settings: Settings, store, sc: scope.Scope, max_calls: int = 6,
+                  groups=None):
     """Wire the real store, SEC facts and Ollama. Returns (guard, model)."""
     from finrag import edgar
     from finrag.tools import build_guard, facts_loader
@@ -297,7 +298,8 @@ def from_settings(settings: Settings, store, sc: scope.Scope, max_calls: int = 6
     ciks = {f.ticker: f.cik for f in filings}
     load = facts_loader(lambda: edgar.EdgarClient(settings.sec_user_agent), ciks,
                         settings.data_dir / "facts")
-    guard = build_guard(store, load, ciks, settings.top_k, settings.min_score, max_calls)
+    guard = build_guard(store, load, ciks, settings.top_k, settings.min_score, max_calls,
+                        groups)
     if settings.preset.provider != "ollama":
         from finrag.providers import chat_model
 

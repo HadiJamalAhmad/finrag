@@ -145,11 +145,13 @@ class ToolGuard:
 
 # ---- tool implementations ------------------------------------------------------
 
-def make_search(store, top_k: int, min_score: float):
+def make_search(store, top_k: int, min_score: float, groups=None):
+    """groups: the user's groups. The agent reads only what its user may read."""
     def search_filings(args: SearchArgs, guard: ToolGuard) -> str:
         tickers = frozenset({args.ticker}) if args.ticker else frozenset()
         years = frozenset({args.fiscal_year}) if args.fiscal_year else frozenset()
-        hits = [(s, p) for s, p in store.search(args.query, top_k, tickers, years)
+        extra = {"groups": frozenset(groups)} if groups is not None else {}
+        hits = [(s, p) for s, p in store.search(args.query, top_k, tickers, years, **extra)
                 if s >= min_score]  # same evidence gate as the plain answer path
         if not hits:
             return "No passage in the filings is relevant enough to this query."
@@ -266,10 +268,10 @@ def facts_loader(client_factory: Callable[[], object], ciks: dict[str, int], cac
 
 
 def build_guard(store, load_facts, allowed_tickers, top_k: int, min_score: float,
-                max_calls: int = 6) -> ToolGuard:
+                max_calls: int = 6, groups=None) -> ToolGuard:
     return ToolGuard(
         tools={
-            "search_filings": (SearchArgs, make_search(store, top_k, min_score),
+            "search_filings": (SearchArgs, make_search(store, top_k, min_score, groups),
                                "Search the text of the companies' 10-K/10-Q filings "
                                "(risks, strategy, MD&A, legal proceedings...)."),
             "get_financial_fact": (FactArgs, make_facts(load_facts),
