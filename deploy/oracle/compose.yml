@@ -1,0 +1,66 @@
+# finrag on Oracle Cloud Always Free (Ampere A1, arm64, CPU only). Always on.
+# The free fallback while Modal is off; Modal (deploy/modal_app.py) is unchanged.
+#
+#   cp deploy/oracle/.env.example deploy/oracle/.env    # then fill it (never commit it)
+#   docker compose -f deploy/oracle/compose.yml up -d --build
+#
+# data/ (index, facts, manifest) is copied from the PC to the VM by deploy/oracle/README.md
+# step 6: it is gitignored, like on Modal.
+services:
+  ollama:
+    image: ollama/ollama:0.40.16   # multi-arch (arm64); current release on 2026-11-09
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: "-1"      # always on: keep the model loaded
+      OLLAMA_NUM_PARALLEL: "1"     # few cores: one answer at a time is faster than two
+    volumes:
+      - ollama:/root/.ollama
+    # No ports: only the API reaches Ollama, on the compose network.
+
+  models:                          # one-shot: pull, check digests, load, exit 0
+    build: { context: ../.., dockerfile: deploy/oracle/Dockerfile }
+    command: ["python", "pull_models.py"]
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      FINRAG_OLLAMA_MODELS: llama-3b
+      FINRAG_MODEL: llama-3b
+    depends_on: [ollama]
+    restart: "no"
+
+  api:
+    build: { context: ../.., dockerfile: deploy/oracle/Dockerfile }
+    restart: unless-stopped
+    env_file: .env                 # FINRAG_API_KEY, FINRAG_INGEST_KEY, Clerk, Langfuse...
+    environment:
+      FINRAG_DATA: /data
+      OLLAMA_URL: http://ollama:11434
+      FINRAG_MODEL: llama-3b
+      FINRAG_OLLAMA_MODELS: llama-3b   # qwen3-4b / mistral-24b: GPU only (Modal)
+      FINRAG_GPU: A1-CPU               # cost estimate: 0 (Always Free)
+      FINRAG_ENV: production
+    volumes:
+      - ../../data:/data               # Qdrant local mode writes a lock file: read-write
+    depends_on:
+      models: { condition: service_completed_successfully }
+    expose: ["8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  caddy:                           # HTTPS (Let's Encrypt) in front of the API
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in deploy/oracle/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [api]
+
+volumes:
+  ollama:
+  caddy_data:

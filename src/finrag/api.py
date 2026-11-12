@@ -123,20 +123,32 @@ def health() -> dict:
 @app.get("/models")
 def models() -> dict:
     s = get_settings()
-    return {"default": s.model, "models": [
+    return {"default": s.model, "hardware": s.gpu, "models": [
         {"name": p.name, "label": p.label, "model_id": p.model_id, "digest": p.digest,
          "provider": p.provider, "available": _available(p, s)}
         for p in MODEL_REGISTRY.values()]}
 
 
+def served_ollama(s) -> set[str] | None:
+    """The Ollama presets this server serves (FINRAG_OLLAMA_MODELS), None = all."""
+    names = {n.strip() for n in s.ollama_models.split(",") if n.strip()}
+    return names or None
+
+
 def _available(p, s) -> bool:
-    return {"ollama": True, "openai": bool(s.openai_api_key),
+    served = served_ollama(s)
+    return {"ollama": served is None or p.name in served,
+            "openai": bool(s.openai_api_key),
             "anthropic": bool(s.anthropic_api_key)}[p.provider]
 
 
 def _settings_for(q: Query):
     s, sc, store = _deps()
-    return (replace(s, model=q.model) if q.model else s), sc, store
+    s = replace(s, model=q.model) if q.model else s
+    preset = MODEL_REGISTRY[s.model]
+    if preset.provider == "ollama" and not _available(preset, s):
+        raise HTTPException(503, f"model {s.model!r} is not served on this server")
+    return s, sc, store
 
 
 def _groups(who) -> list[str] | None:

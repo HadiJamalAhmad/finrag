@@ -65,11 +65,17 @@ jobs:
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+      # Repository variable: "oracle" while the free host serves the site (deploy/oracle/),
+      # so a push to main does not try to deploy to a disabled Modal workspace.
+      DEPLOY_TARGET: ${{ vars.FINRAG_DEPLOY_TARGET }}
     steps:
       - name: Skip without a Modal token
         id: token
         run: |
-          if [ -n "$MODAL_TOKEN_ID" ] && [ -n "$MODAL_TOKEN_SECRET" ]; then
+          if [ "$DEPLOY_TARGET" = "oracle" ]; then
+            echo "::notice::FINRAG_DEPLOY_TARGET=oracle: Modal deploy skipped (deploy/oracle/)"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          elif [ -n "$MODAL_TOKEN_ID" ] && [ -n "$MODAL_TOKEN_SECRET" ]; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
             echo "::notice::MODAL_TOKEN_ID / MODAL_TOKEN_SECRET not set: deploy skipped"

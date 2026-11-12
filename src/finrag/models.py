@@ -110,7 +110,10 @@ DEFAULT_MODEL = "llama-3b"
 
 # Modal list prices in USD per GPU-hour, read on 2026-11-09 (modal.com/pricing).
 # Re-check before quoting a cost: these are inputs to an estimate, not measurements.
-GPU_USD_PER_HOUR = {"T4": 0.59, "L4": 0.80, "A10G": 1.10}
+GPU_USD_PER_HOUR = {"T4": 0.59, "L4": 0.80, "A10G": 1.10,
+                    # Oracle Cloud Always Free, Ampere A1 (CPU, no GPU): no marginal cost.
+                    # The free fallback while Modal is off (deploy/oracle/).
+                    "A1-CPU": 0.0}
 
 LOCK_PATH = Path(__file__).resolve().parents[2] / "deploy" / "models.lock"
 

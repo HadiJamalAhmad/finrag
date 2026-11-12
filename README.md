@@ -113,6 +113,12 @@ uv run modal run deploy/modal_app.py::upload_data   # data/ -> Volume finrag-dat
 uv run modal deploy deploy/modal_app.py             # or push to main and let CI do it
 ```
 
+- **Free fallback (Oracle Always Free).** While Modal is off, the same API runs on an
+  arm64 CPU VM with Llama 3.2 3B only (pinned digest, cost 0, slower answers):
+  [deploy/oracle/README.md](deploy/oracle/README.md). Switching is one Vercel variable
+  (`FINRAG_BACKEND_URL`) and one GitHub variable (`FINRAG_DEPLOY_TARGET=oracle`, which
+  makes CI skip the Modal deploy).
+
 First checks on the live site: NVIDIA export controls answered from Item 1A; JPMorgan
 market risk answered from Item 7A (the Week 1 cross-reference fix); Tesla refused at
 `scope`; the NVIDIA share-price forecast passes the evidence gate (0.799) and is

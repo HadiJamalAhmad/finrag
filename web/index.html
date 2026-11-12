@@ -119,9 +119,9 @@
   <div id="result"></div>
 
   <footer>
-    Source: SEC EDGAR. Three open-weight models, pinned by digest, served by Ollama on one
-    GPU that sleeps when idle: the first question after a pause can take a minute or two,
-    and switching model loads it first. GPT and Claude are hosted by their vendors: the
+    Source: SEC EDGAR. <span id="hosting">Three open-weight models, pinned by digest, served
+    by Ollama on one GPU that sleeps when idle: the first question after a pause can take a
+    minute or two, and switching model loads it first.</span> GPT and Claude are hosted by their vendors: the
     question and the retrieved filing passages are sent to them. Cost shown is GPU time
     (open models) or tokens x list price (hosted). Not investment advice.
     <br>API: REST (<code>POST /api/query</code>, <code>/api/agent</code>) or
@@ -198,6 +198,12 @@
   // Hosted models are listed but disabled until their key is configured on the backend.
   // Asked once; it may take a minute when the GPU is asleep, the page works meanwhile.
   fetch("/api/models").then((r) => r.json()).then((d) => {
+    // The free fallback host (deploy/oracle/): say so, the timings are not the GPU's.
+    if (d.hardware === "A1-CPU") {
+      $("#hosting").textContent = "Temporary free hosting: Llama 3.2 3B, pinned by digest, "
+        + "served by Ollama on a CPU-only server (no GPU), so an answer takes from 30 s to "
+        + "a few minutes. The other open models come back with the GPU host.";
+    }
     for (const m of d.models || []) {
       const opt = document.querySelector(`#model option[value="${m.name}"]`);
       if (opt && !m.available) { opt.disabled = true; opt.textContent += " · not configured"; }

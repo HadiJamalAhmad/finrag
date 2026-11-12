@@ -41,6 +41,10 @@ class Settings:
     model: str = os.environ.get("FINRAG_MODEL", "llama-3b")
     # The GPU the model runs on, for the cost estimate (finrag.models.GPU_USD_PER_HOUR).
     gpu: str = os.environ.get("FINRAG_GPU", "L4")
+    # The Ollama presets this server actually serves, comma-separated; empty = all of
+    # them (the Modal image pulls all three). The Oracle CPU host serves llama-3b only:
+    # the others are listed as unavailable and a request for one gets a 503.
+    ollama_models: str = os.environ.get("FINRAG_OLLAMA_MODELS", "")
     # Hosted models (opt-in) and tracing. repr=False: a printed Settings never shows a key.
     openai_api_key: str = field(default_factory=lambda: os.environ.get("OPENAI_API_KEY", ""),
                                 repr=False)
