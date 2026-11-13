@@ -1,0 +1,1718 @@
+{
+  "source": {
+    "dataset": "FinanceBench (Patronus AI), open-source sample",
+    "commit": "cc39aeb4afdf33909ee1412188bf89035950c2eb",
+    "license": "CC BY-NC 4.0",
+    "paper": "arXiv:2311.11944"
+  },
+  "rules": {
+    "shingle": 12,
+    "min_coverage": 0.5,
+    "year_shift": 15,
+    "absent_companies": [
+      "Tesla",
+      "Intel",
+      "Starbucks",
+      "Caterpillar",
+      "Chevron",
+      "Honeywell"
+    ]
+  },
+  "counts": {
+    "questions": 150,
+    "answerable_kept": 122,
+    "unanswerable_variants": 113,
+    "excluded": 28,
+    "filings": 72
+  },
+  "suite_sha256": "875bd7d235a04fd959cd49d0c57428c99f3809cda5dbb25a9252b1235755b9e3",
+  "excluded": [
+    {
+      "id": "financebench_id_01935",
+      "doc": "AMCOR_2022_8K_dated-2022-07-01",
+      "reason": "document type '8k': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_01928",
+      "doc": "AMCOR_2023Q4_EARNINGS",
+      "reason": "document type 'Earnings': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_01930",
+      "doc": "AMCOR_2023Q4_EARNINGS",
+      "reason": "document type 'Earnings': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_00839",
+      "doc": "FOOTLOCKER_2022_8K_dated_2022-08-19",
+      "reason": "document type '8k': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_00822",
+      "doc": "FOOTLOCKER_2022_8K_dated-2022-05-20",
+      "reason": "document type '8k': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_00651",
+      "doc": "JOHNSON_JOHNSON_2022Q4_EARNINGS",
+      "reason": "document type 'Earnings': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_01484",
+      "doc": "JOHNSON_JOHNSON_2022Q4_EARNINGS",
+      "reason": "document type 'Earnings': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_01488",
+      "doc": "JOHNSON_JOHNSON_2023_8K_dated-2023-08-30",
+      "reason": "document type '8k': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_01490",
+      "doc": "JOHNSON_JOHNSON_2023_8K_dated-2023-08-30",
+      "reason": "document type '8k': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_01491",
+      "doc": "JOHNSON_JOHNSON_2023_8K_dated-2023-08-30",
+      "reason": "document type '8k': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_01487",
+      "doc": "JOHNSON_JOHNSON_2023Q2_EARNINGS",
+      "reason": "document type 'Earnings': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_00382",
+      "doc": "MGMRESORTS_2022Q4_EARNINGS",
+      "reason": "document type 'Earnings': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_01911",
+      "doc": "MGMRESORTS_2022Q4_EARNINGS",
+      "reason": "document type 'Earnings': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_01912",
+      "doc": "MGMRESORTS_2022Q4_EARNINGS",
+      "reason": "document type 'Earnings': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_01482",
+      "doc": "PEPSICO_2023_8K_dated-2023-05-05",
+      "reason": "document type '8k': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_00705",
+      "doc": "PEPSICO_2023_8K_dated-2023-05-30",
+      "reason": "document type '8k': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_00882",
+      "doc": "PEPSICO_2023_8K_dated-2023-05-30",
+      "reason": "document type '8k': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_01474",
+      "doc": "PEPSICO_2023Q1_EARNINGS",
+      "reason": "document type 'Earnings': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_01476",
+      "doc": "PEPSICO_2023Q1_EARNINGS",
+      "reason": "document type 'Earnings': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_00601",
+      "doc": "ULTABEAUTY_2023Q4_EARNINGS",
+      "reason": "document type 'Earnings': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_00603",
+      "doc": "ULTABEAUTY_2023Q4_EARNINGS",
+      "reason": "document type 'Earnings': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_00605",
+      "doc": "ULTABEAUTY_2023Q4_EARNINGS",
+      "reason": "document type 'Earnings': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_00606",
+      "doc": "ULTABEAUTY_2023Q4_EARNINGS",
+      "reason": "document type 'Earnings': finrag ingests 10-K/10-Q"
+    },
+    {
+      "id": "financebench_id_00941",
+      "doc": "3M_2023Q2_10Q",
+      "reason": "evidence not located in any Item (best coverage 0.05)"
+    },
+    {
+      "id": "financebench_id_00476",
+      "doc": "AMERICANEXPRESS_2022_10K",
+      "reason": "evidence not located in any Item (best coverage 0.12)"
+    },
+    {
+      "id": "financebench_id_00283",
+      "doc": "Pfizer_2023Q2_10Q",
+      "reason": "evidence not located in any Item (best coverage 0.23)"
+    },
+    {
+      "id": "financebench_id_02419",
+      "doc": "Pfizer_2023Q2_10Q",
+      "reason": "evidence not located in any Item (best coverage 0.23)"
+    },
+    {
+      "id": "financebench_id_00746",
+      "doc": "ULTABEAUTY_2023_10K",
+      "reason": "evidence not located in any Item (best coverage 0.16)"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "financebench_id_03029",
+      "doc": "3M_2018_10K",
+      "accession": "0001558370-19-000470",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04672",
+      "doc": "3M_2018_10K",
+      "accession": "0001558370-19-000470",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00499",
+      "doc": "3M_2022_10K",
+      "accession": "0000066740-23-000014",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01226",
+      "doc": "3M_2022_10K",
+      "accession": "0000066740-23-000014",
+      "evidence": [
+        [
+          "7",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01865",
+      "doc": "3M_2022_10K",
+      "accession": "0000066740-23-000014",
+      "evidence": [
+        [
+          "7",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00807",
+      "doc": "3M_2023Q2_10Q",
+      "accession": "0000066740-23-000058",
+      "evidence": [
+        [
+          "I-1",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00941",
+      "doc": "3M_2023Q2_10Q",
+      "accession": "0000066740-23-000058",
+      "evidence": [
+        [
+          null,
+          0.05
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01858",
+      "doc": "3M_2023Q2_10Q",
+      "accession": "0000066740-23-000058",
+      "evidence": [
+        [
+          "I-2",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_02987",
+      "doc": "ACTIVISIONBLIZZARD_2019_10K",
+      "accession": "0000718877-20-000003",
+      "evidence": [
+        [
+          "16",
+          1.0
+        ],
+        [
+          "16",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_07966",
+      "doc": "ACTIVISIONBLIZZARD_2019_10K",
+      "accession": "0000718877-20-000003",
+      "evidence": [
+        [
+          "16",
+          1.0
+        ],
+        [
+          "16",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04735",
+      "doc": "ADOBE_2015_10K",
+      "accession": "0000796343-16-000224",
+      "evidence": [
+        [
+          "8",
+          0.999
+        ],
+        [
+          "8",
+          0.999
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_07507",
+      "doc": "ADOBE_2016_10K",
+      "accession": "0000796343-17-000031",
+      "evidence": [
+        [
+          "8",
+          0.99
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_03856",
+      "doc": "ADOBE_2017_10K",
+      "accession": "0000796343-18-000015",
+      "evidence": [
+        [
+          "8",
+          0.991
+        ],
+        [
+          "8",
+          0.994
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00438",
+      "doc": "ADOBE_2022_10K",
+      "accession": "0000796343-23-000007",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00591",
+      "doc": "ADOBE_2022_10K",
+      "accession": "0000796343-23-000007",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01319",
+      "doc": "AES_2022_10K",
+      "accession": "0000874761-23-000010",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00540",
+      "doc": "AES_2022_10K",
+      "accession": "0000874761-23-000010",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_10420",
+      "doc": "AES_2022_10K",
+      "accession": "0000874761-23-000010",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_06655",
+      "doc": "AMAZON_2017_10K",
+      "accession": "0001018724-18-000005",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_08135",
+      "doc": "AMAZON_2017_10K",
+      "accession": "0001018724-18-000005",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_08286",
+      "doc": "AMAZON_2019_10K",
+      "accession": "0001018724-20-000004",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_03882",
+      "doc": "AMCOR_2020_10K",
+      "accession": "0001748790-20-000025",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01936",
+      "doc": "AMCOR_2023Q2_10Q",
+      "accession": "0001748790-23-000007",
+      "evidence": [
+        [
+          "I-1",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00799",
+      "doc": "AMCOR_2023_10K",
+      "accession": "0001748790-23-000030",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01079",
+      "doc": "AMCOR_2023_10K",
+      "accession": "0001748790-23-000030",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01148",
+      "doc": "AMCOR_2023_10K",
+      "accession": "0001748790-23-000030",
+      "evidence": [
+        [
+          "1",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00684",
+      "doc": "AMCOR_2023_10K",
+      "accession": "0001748790-23-000030",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_03069",
+      "doc": "AMD_2015_10K",
+      "accession": "0000002488-16-000111",
+      "evidence": [
+        [
+          "8",
+          0.961
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00222",
+      "doc": "AMD_2022_10K",
+      "accession": "0000002488-23-000047",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00995",
+      "doc": "AMD_2022_10K",
+      "accession": "0000002488-23-000047",
+      "evidence": [
+        [
+          "1",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01198",
+      "doc": "AMD_2022_10K",
+      "accession": "0000002488-23-000047",
+      "evidence": [
+        [
+          "7",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00917",
+      "doc": "AMD_2022_10K",
+      "accession": "0000002488-23-000047",
+      "evidence": [
+        [
+          "7",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01279",
+      "doc": "AMD_2022_10K",
+      "accession": "0000002488-23-000047",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00563",
+      "doc": "AMD_2022_10K",
+      "accession": "0000002488-23-000047",
+      "evidence": [
+        [
+          "7",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00757",
+      "doc": "AMD_2022_10K",
+      "accession": "0000002488-23-000047",
+      "evidence": [
+        [
+          "1",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00476",
+      "doc": "AMERICANEXPRESS_2022_10K",
+      "accession": "0000004962-23-000006",
+      "evidence": [
+        [
+          null,
+          0.12
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01028",
+      "doc": "AMERICANEXPRESS_2022_10K",
+      "accession": "0000004962-23-000006",
+      "evidence": [
+        [
+          "8",
+          0.921
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00723",
+      "doc": "AMERICANEXPRESS_2022_10K",
+      "accession": "0000004962-23-000006",
+      "evidence": [
+        [
+          "8",
+          0.99
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00720",
+      "doc": "AMERICANEXPRESS_2022_10K",
+      "accession": "0000004962-23-000006",
+      "evidence": [
+        [
+          "8",
+          0.99
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01351",
+      "doc": "AMERICANEXPRESS_2022_10K",
+      "accession": "0000004962-23-000006",
+      "evidence": [
+        [
+          "7",
+          0.961
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01964",
+      "doc": "AMERICANEXPRESS_2022_10K",
+      "accession": "0000004962-23-000006",
+      "evidence": [
+        [
+          "8",
+          0.992
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01981",
+      "doc": "AMERICANEXPRESS_2022_10K",
+      "accession": "0000004962-23-000006",
+      "evidence": [
+        [
+          "7",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_05718",
+      "doc": "AMERICANWATERWORKS_2020_10K",
+      "accession": "0001410636-21-000101",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04254",
+      "doc": "AMERICANWATERWORKS_2021_10K",
+      "accession": "0001410636-22-000048",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00070",
+      "doc": "AMERICANWATERWORKS_2022_10K",
+      "accession": "0001410636-23-000020",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_02608",
+      "doc": "BESTBUY_2017_10K",
+      "accession": "0000764478-17-000008",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04417",
+      "doc": "BESTBUY_2019_10K",
+      "accession": "0000764478-19-000009",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00685",
+      "doc": "BESTBUY_2023_10K",
+      "accession": "0000764478-23-000006",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01077",
+      "doc": "BESTBUY_2023_10K",
+      "accession": "0000764478-23-000006",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01275",
+      "doc": "BESTBUY_2023_10K",
+      "accession": "0000764478-23-000006",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00288",
+      "doc": "BESTBUY_2024Q2_10Q",
+      "accession": "0000764478-23-000041",
+      "evidence": [
+        [
+          "I-2",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00460",
+      "doc": "BESTBUY_2024Q2_10Q",
+      "accession": "0000764478-23-000041",
+      "evidence": [
+        [
+          "I-2",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01902",
+      "doc": "BESTBUY_2024Q2_10Q",
+      "accession": "0000764478-23-000041",
+      "evidence": [
+        [
+          "I-2",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04660",
+      "doc": "BLOCK_2016_10K",
+      "accession": "0001628280-17-001754",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_03838",
+      "doc": "BLOCK_2020_10K",
+      "accession": "0001512673-21-000008",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_07661",
+      "doc": "BLOCK_2020_10K",
+      "accession": "0001512673-21-000008",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_10285",
+      "doc": "BOEING_2018_10K",
+      "accession": "0000012927-19-000010",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00517",
+      "doc": "BOEING_2022_10K",
+      "accession": "0000012927-23-000007",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01091",
+      "doc": "BOEING_2022_10K",
+      "accession": "0000012927-23-000007",
+      "evidence": [
+        [
+          "3",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00678",
+      "doc": "BOEING_2022_10K",
+      "accession": "0000012927-23-000007",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01290",
+      "doc": "BOEING_2022_10K",
+      "accession": "0000012927-23-000007",
+      "evidence": [
+        [
+          "1A",
+          1.0
+        ],
+        [
+          "1A",
+          1.0
+        ],
+        [
+          "1A",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00464",
+      "doc": "BOEING_2022_10K",
+      "accession": "0000012927-23-000007",
+      "evidence": [
+        [
+          "1A",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00494",
+      "doc": "BOEING_2022_10K",
+      "accession": "0000012927-23-000007",
+      "evidence": [
+        [
+          "1A",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00585",
+      "doc": "BOEING_2022_10K",
+      "accession": "0000012927-23-000007",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_03473",
+      "doc": "COCACOLA_2017_10K",
+      "accession": "0000021344-18-000008",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_09724",
+      "doc": "COCACOLA_2021_10K",
+      "accession": "0000021344-22-000009",
+      "evidence": [
+        [
+          "8",
+          0.958
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_06272",
+      "doc": "COCACOLA_2022_10K",
+      "accession": "0000021344-23-000011",
+      "evidence": [
+        [
+          "8",
+          0.957
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_10130",
+      "doc": "CORNING_2020_10K",
+      "accession": "0001562762-21-000023",
+      "evidence": [
+        [
+          "16",
+          1.0
+        ],
+        [
+          "16",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_02981",
+      "doc": "CORNING_2021_10K",
+      "accession": "0001437749-22-003247",
+      "evidence": [
+        [
+          "16",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01346",
+      "doc": "CORNING_2022_10K",
+      "accession": "0001437749-23-003123",
+      "evidence": [
+        [
+          "7",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00005",
+      "doc": "CORNING_2022_10K",
+      "accession": "0001437749-23-003123",
+      "evidence": [
+        [
+          "16",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04209",
+      "doc": "COSTCO_2021_10K",
+      "accession": "0000909832-21-000014",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_05915",
+      "doc": "CVSHEALTH_2018_10K",
+      "accession": "0000064803-20-000007",
+      "evidence": [
+        [
+          null,
+          0.471
+        ],
+        [
+          "8",
+          0.528
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00790",
+      "doc": "CVSHEALTH_2022_10K",
+      "accession": "0000064803-23-000009",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01107",
+      "doc": "CVSHEALTH_2022_10K",
+      "accession": "0000064803-23-000009",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01244",
+      "doc": "CVSHEALTH_2022_10K",
+      "accession": "0000064803-23-000009",
+      "evidence": [
+        [
+          "5",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04103",
+      "doc": "GENERALMILLS_2019_10K",
+      "accession": "0001193125-19-184675",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_03471",
+      "doc": "GENERALMILLS_2020_10K",
+      "accession": "0001193125-20-186469",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04854",
+      "doc": "GENERALMILLS_2020_10K",
+      "accession": "0001193125-20-186469",
+      "evidence": [
+        [
+          "8",
+          0.999
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_10136",
+      "doc": "GENERALMILLS_2022_10K",
+      "accession": "0001193125-22-185257",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00956",
+      "doc": "JOHNSON_JOHNSON_2022_10K",
+      "accession": "0000200406-23-000016",
+      "evidence": [
+        [
+          "7",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00669",
+      "doc": "JOHNSON_JOHNSON_2022_10K",
+      "accession": "0000200406-23-000016",
+      "evidence": [
+        [
+          "7",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00711",
+      "doc": "JOHNSON_JOHNSON_2022_10K",
+      "accession": "0000200406-23-000016",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00299",
+      "doc": "JPMORGAN_2021Q1_10Q",
+      "accession": "0000019617-21-000292",
+      "evidence": [
+        [
+          "II-6",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_02119",
+      "doc": "JPMORGAN_2021Q1_10Q",
+      "accession": "0000019617-21-000292",
+      "evidence": [
+        [
+          "II-6",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00394",
+      "doc": "JPMORGAN_2022Q2_10Q",
+      "accession": "0000019617-22-000422",
+      "evidence": [
+        [
+          "II-6",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00206",
+      "doc": "JPMORGAN_2022_10K",
+      "accession": "0000019617-23-000231",
+      "evidence": [
+        [
+          "1",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_02049",
+      "doc": "JPMORGAN_2023Q2_10Q",
+      "accession": "0000019617-23-000432",
+      "evidence": [
+        [
+          "II-6",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_10499",
+      "doc": "KRAFTHEINZ_2019_10K",
+      "accession": "0001637459-20-000027",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04412",
+      "doc": "LOCKHEEDMARTIN_2020_10K",
+      "accession": "0000936468-21-000013",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_03031",
+      "doc": "LOCKHEEDMARTIN_2021_10K",
+      "accession": "0000936468-22-000008",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_03718",
+      "doc": "LOCKHEEDMARTIN_2022_10K",
+      "accession": "0000936468-23-000009",
+      "evidence": [
+        [
+          "8",
+          0.988
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04171",
+      "doc": "MGMRESORTS_2018_10K",
+      "accession": "0001564590-19-004807",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_03849",
+      "doc": "MGMRESORTS_2020_10K",
+      "accession": "0001564590-21-009205",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01254",
+      "doc": "MGMRESORTS_2022_10K",
+      "accession": "0000789570-23-000008",
+      "evidence": [
+        [
+          "5",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00407",
+      "doc": "MGMRESORTS_2023Q2_10Q",
+      "accession": "0000789570-23-000019",
+      "evidence": [
+        [
+          "I-1",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04700",
+      "doc": "MICROSOFT_2016_10K",
+      "accession": "0001193125-16-662209",
+      "evidence": [
+        [
+          "8",
+          0.988
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00552",
+      "doc": "MICROSOFT_2023_10K",
+      "accession": "0000950170-23-035122",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04458",
+      "doc": "NETFLIX_2015_10K",
+      "accession": "0001065280-16-000047",
+      "evidence": [
+        [
+          "15",
+          1.0
+        ],
+        [
+          "15",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_03282",
+      "doc": "NETFLIX_2017_10K",
+      "accession": "0001065280-18-000069",
+      "evidence": [
+        [
+          "16",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04302",
+      "doc": "NIKE_2018_10K",
+      "accession": "0000320187-18-000142",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_03531",
+      "doc": "NIKE_2019_10K",
+      "accession": "0000320187-19-000051",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04080",
+      "doc": "NIKE_2021_10K",
+      "accession": "0000320187-21-000028",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01163",
+      "doc": "NIKE_2023_10K",
+      "accession": "0000320187-23-000039",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00080",
+      "doc": "PAYPAL_2022_10K",
+      "accession": "0001633917-23-000033",
+      "evidence": [
+        [
+          "15",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04980",
+      "doc": "PEPSICO_2021_10K",
+      "accession": "0000077476-22-000010",
+      "evidence": [
+        [
+          "7",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01009",
+      "doc": "PEPSICO_2022_10K",
+      "accession": "0000077476-23-000007",
+      "evidence": [
+        [
+          "16",
+          0.571
+        ],
+        [
+          "1",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00735",
+      "doc": "PEPSICO_2022_10K",
+      "accession": "0000077476-23-000007",
+      "evidence": [
+        [
+          "3",
+          0.944
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_01328",
+      "doc": "PEPSICO_2022_10K",
+      "accession": "0000077476-23-000007",
+      "evidence": [
+        [
+          "7",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_03620",
+      "doc": "PEPSICO_2022_10K",
+      "accession": "0000077476-23-000007",
+      "evidence": [
+        [
+          "7",
+          1.0
+        ],
+        [
+          "7",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04481",
+      "doc": "PEPSICO_2022_10K",
+      "accession": "0000077476-23-000007",
+      "evidence": [
+        [
+          "7",
+          1.0
+        ],
+        [
+          "7",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00302",
+      "doc": "PFIZER_2021_10K",
+      "accession": "0000078003-22-000027",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00702",
+      "doc": "PFIZER_2021_10K",
+      "accession": "0000078003-22-000027",
+      "evidence": [
+        [
+          "8",
+          0.957
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_02416",
+      "doc": "PFIZER_2021_10K",
+      "accession": "0000078003-22-000027",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00283",
+      "doc": "Pfizer_2023Q2_10Q",
+      "accession": "0000078003-23-000088",
+      "evidence": [
+        [
+          null,
+          0.234
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00724",
+      "doc": "Pfizer_2023Q2_10Q",
+      "accession": "0000078003-23-000088",
+      "evidence": [
+        [
+          "I-1",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_02419",
+      "doc": "Pfizer_2023Q2_10Q",
+      "accession": "0000078003-23-000088",
+      "evidence": [
+        [
+          null,
+          0.234
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00746",
+      "doc": "ULTABEAUTY_2023_10K",
+      "accession": "0001558370-23-004581",
+      "evidence": [
+        [
+          null,
+          0.156
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00521",
+      "doc": "ULTABEAUTY_2023_10K",
+      "accession": "0001558370-23-004581",
+      "evidence": [
+        [
+          "15",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00859",
+      "doc": "VERIZON_2021_10K",
+      "accession": "0000732712-22-000008",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_02024",
+      "doc": "VERIZON_2021_10K",
+      "accession": "0000732712-22-000008",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00216",
+      "doc": "VERIZON_2022_10K",
+      "accession": "0000732712-23-000012",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00215",
+      "doc": "VERIZON_2022_10K",
+      "accession": "0000732712-23-000012",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "7",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_00566",
+      "doc": "VERIZON_2022_10K",
+      "accession": "0000732712-23-000012",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_06247",
+      "doc": "WALMART_2018_10K",
+      "accession": "0000104169-18-000028",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_04784",
+      "doc": "WALMART_2019_10K",
+      "accession": "0000104169-19-000016",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "financebench_id_06741",
+      "doc": "WALMART_2020_10K",
+      "accession": "0000104169-20-000011",
+      "evidence": [
+        [
+          "8",
+          1.0
+        ],
+        [
+          "8",
+          1.0
+        ]
+      ]
+    }
+  ]
+}

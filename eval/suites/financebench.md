@@ -56,7 +56,15 @@ on SEC filings written and checked by financial analysts.
   best candidate (test: `test_a_partial_match_on_comparatives_loses_to_the_real_filing`).
   v1 counts, for the record: 122 answerable kept, 113 unanswerable variants,
   28 excluded (23 document type, 5 evidence outside any parsed Item), 72 filings.
-- **v2**: the frozen suite (`financebench.jsonl`, hash in `financebench.sha256`).
+- **v2 (2026-11-13)**: the frozen suite (`financebench.jsonl`, hash in
+  `financebench.sha256`, details in `financebench.build.json`). 122 answerable,
+  113 unanswerable variants, 28 excluded (23 document type, 5 evidence outside any
+  parsed Item: 3M 2023Q2, American Express 2022, Pfizer 2023Q2 x2, Ulta 2023),
+  72 filings. Amcor, Best Buy and J&J now resolve at coverage 1.00.
+  Flagged, kept by the rule: `financebench_id_05915` (CVS FY2018). CVS's FY2018 10-K
+  keeps its financial statements in Exhibit 13, which finrag does not ingest (as for
+  JPMorgan's MD&A); the FY2019 10-K repeats part of them as comparatives (0.51), so
+  the gold points at the FY2019 filing.
 
 ## Corpus
 
