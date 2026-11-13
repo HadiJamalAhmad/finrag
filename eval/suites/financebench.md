@@ -26,10 +26,11 @@ on SEC filings written and checked by financial analysts.
 
 1. Keep questions on 10-K and 10-Q documents (127 of 150). 8-Ks and earnings
    releases are excluded: finrag does not ingest them.
-2. Resolve each document to its EDGAR filing: the filing whose text contains the
-   evidence (mean coverage of 12-character shingles >= **0.5**, both texts reduced to
-   lowercase letters and digits). Candidates in a fixed order: labelled fiscal year
-   first, then the year after, then the year before.
+2. Resolve each document to its EDGAR filing: the candidate whose text covers the
+   evidence **best** (mean coverage of 12-character shingles, both texts reduced to
+   lowercase letters and digits), and only if that coverage is >= **0.5**. Candidates
+   in a fixed order: labelled fiscal year first, then the year after, then the year
+   before; a tie keeps the earlier one; a coverage >= 0.99 ends the search.
 3. Gold = (ticker, form, period, section), the Item that contains each evidence
    passage (same 0.5 coverage rule). Several evidence passages may give several Items;
    any of them counts as relevant.
@@ -44,6 +45,18 @@ on SEC filings written and checked by financial analysts.
    kinds (a forecast, a detail no filing contains) stay in `seed.jsonl`.
 6. The suite is written once with its SHA-256 in `financebench.sha256`; a test fails
    if the file changes. A correction is a new version (new file), never an edit.
+
+## Build history
+
+- **v1 (2026-11-13), discarded before any system ran on it.** Rule 2 then took the
+  *first* candidate above 0.5. A 10-K repeats the two previous years' statements, so
+  a neighbouring year's filing could pass on its comparatives: J&J "2022" resolved
+  to the FY2021 10-K (coverage 0.68), and CVS 2018 (0.51), Amcor 2023Q2 (0.58) and
+  Best Buy 2024Q2 (0.62) were partial matches of the same kind. Rule 2 now takes the
+  best candidate (test: `test_a_partial_match_on_comparatives_loses_to_the_real_filing`).
+  v1 counts, for the record: 122 answerable kept, 113 unanswerable variants,
+  28 excluded (23 document type, 5 evidence outside any parsed Item), 72 filings.
+- **v2**: the frozen suite (`financebench.jsonl`, hash in `financebench.sha256`).
 
 ## Corpus
 

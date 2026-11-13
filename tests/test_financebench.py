@@ -79,6 +79,22 @@ def test_the_filing_holding_the_evidence_wins():
     assert f is None and c < fb.MIN_COVERAGE
 
 
+def test_a_partial_match_on_comparatives_loses_to_the_real_filing():
+    """Build v1 bug: the prior-year 10-K (0.68, comparatives) beat the real one."""
+    texts = {"k21": "revenue 100 cost 60", "k22": "revenue 100 cost 60 margin 40 tax 9"}
+    files = [_filing("10-K", "2022-01-02", "k21"), _filing("10-K", "2023-01-01", "k22")]
+    f, _ = fb.resolve(["revenue 100 cost 60 margin 40 tax 9"], files,
+                      lambda f: fb.shingles(fb.normalize(texts[f.accession])))
+    assert f.accession == "k22"
+
+
+def test_a_tie_keeps_the_labelled_year():
+    files = [_filing("10-K", "2018-12-31", "k18"), _filing("10-K", "2019-12-31", "k19")]
+    f, _ = fb.resolve(["capital expenditure 1,577"], files,
+                      lambda f: fb.shingles(fb.normalize("capital expenditure 1,577")))
+    assert f.accession == "k18"
+
+
 def test_year_variant_moves_every_year_out_of_the_corpus():
     q = fb.year_variant("What is 3M's FY2018 capex, and the FY22 quick ratio vs 2021?")
     assert q == "What is 3M's FY2003 capex, and the FY07 quick ratio vs 2006?"

@@ -162,21 +162,28 @@ def candidates(ref: DocRef, filings: list) -> list:
 
 
 def resolve(evidences: list[str], filings: list, load_grams) -> tuple[object | None, float]:
-    """First candidate whose text covers the evidence (mean coverage >= MIN_COVERAGE).
+    """The candidate that covers the evidence BEST (mean coverage), if >= MIN_COVERAGE.
+
+    Not the first one above the threshold: a 10-K repeats the two previous years'
+    statements, so the neighbouring year's filing often covers 0.5-0.7 of the
+    evidence (build v1 matched J&J "2022" to the FY2021 10-K at 0.68). Ties keep the
+    earlier candidate (the labelled year). A candidate at >= 0.99 ends the search:
+    nothing can beat it but a tie, and a tie keeps it anyway.
 
     load_grams(filing) -> shingle set of the whole filing (downloads, parses, caches).
     Returns (filing, coverage), or (None, best coverage seen).
     """
-    best = 0.0
+    best, score = None, 0.0
     for f in filings:
         grams = load_grams(f)
         if grams is None:
             continue
         c = sum(coverage(e, grams) for e in evidences) / len(evidences)
-        if c >= MIN_COVERAGE:
-            return f, c
-        best = max(best, c)
-    return None, best
+        if c > score:
+            best, score = f, c
+        if score >= 0.99:
+            break
+    return (best, score) if score >= MIN_COVERAGE else (None, score)
 
 
 # --- unanswerable variants ---------------------------------------------------------
