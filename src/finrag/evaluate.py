@@ -74,8 +74,13 @@ def run(suite: list[dict], sc, store, settings, llm=None, with_llm: bool = True,
                 refused = not hits or hits[0][0] < settings.min_score
                 stage = "evidence" if refused else "answered"
         refusal_rows.append((case["answerable"], refused))
-        cases.append({"id": case["id"], "answerable": case["answerable"], "refused": refused,
-                      "stage": stage, **extra})
+        row = {"id": case["id"], "answerable": case["answerable"], "refused": refused,
+               "stage": stage, **extra}
+        if case["answerable"]:
+            row["hit@5"] = rec[-1] == 1.0
+        if "type" in case:
+            row["type"] = case["type"]
+        cases.append(row)
 
     report = {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -85,11 +90,51 @@ def run(suite: list[dict], sc, store, settings, llm=None, with_llm: bool = True,
         "mrr": round(mean(rr), 3) if rr else None,
         **metrics.refusal_scores(refusal_rows),
     }
+    report["ci95"] = _intervals(rec, refusal_rows)
+    if any("type" in c for c in cases):
+        report["by_type"] = _by_type(cases)
     if with_llm:
         report |= _cost_and_latency(settings, seconds, usages)
     report["cases"] = cases
     report["gates"] = {name: _gate(report.get(name), op, t) for name, (op, t) in GATES.items()}
     return report
+
+
+def _intervals(rec: list[float], rows: list[tuple[bool, bool]]) -> dict:
+    """95% Wilson intervals: a rate on a few dozen cases is a range, not a point."""
+    unans = [r for a, r in rows if not a]
+    ans = [r for a, r in rows if a]
+    return {"recall@5": metrics.wilson(int(sum(rec)), len(rec)),
+            "false_accept_rate": metrics.wilson(sum(not r for r in unans), len(unans)),
+            "over_refusal_rate": metrics.wilson(sum(ans), len(ans))}
+
+
+def _by_type(cases: list[dict]) -> dict:
+    """Per question type: where the system is weak, not just how weak on average."""
+    out: dict[str, dict] = {}
+    for t in sorted({c["type"] for c in cases if "type" in c}):
+        group = [c for c in cases if c.get("type") == t]
+        ans = [c for c in group if c["answerable"]]
+        out[t] = {"n": len(group),
+                  "recall@5": round(mean(c["hit@5"] for c in ans), 3) if ans else None,
+                  "refused": round(mean(c["refused"] for c in group), 3)}
+    return out
+
+
+def compare(a: dict, b: dict) -> dict:
+    """Two reports on the same suite, paired case by case (McNemar).
+
+    Correct = answered when answerable, refused when not. Only the cases where
+    the two systems disagree carry information about which one is better.
+    """
+    ra = {c["id"]: c["refused"] != c["answerable"] for c in a["cases"]}
+    rb = {c["id"]: c["refused"] != c["answerable"] for c in b["cases"]}
+    shared = sorted(ra.keys() & rb.keys())
+    only_a = [i for i in shared if ra[i] and not rb[i]]
+    only_b = [i for i in shared if rb[i] and not ra[i]]
+    return {"n_paired": len(shared), "a_correct": sum(ra[i] for i in shared),
+            "b_correct": sum(rb[i] for i in shared), "only_a": only_a, "only_b": only_b,
+            "mcnemar_p": metrics.mcnemar(len(only_a), len(only_b))}
 
 
 def _cost_and_latency(settings, seconds: list[float], usages: list[dict]) -> dict:

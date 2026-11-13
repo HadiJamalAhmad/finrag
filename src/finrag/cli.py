@@ -4,6 +4,12 @@
   uv run finrag ingest
   uv run finrag ask "What supply chain risks does Apple describe?"
   uv run finrag eval eval/suites/seed.jsonl
+
+Held-out suite (FinanceBench, its own corpus under data-bench/, never the demo's):
+  uv run finrag bench-build                      # once: filings + frozen suite
+  FINRAG_DATA=data-bench uv run finrag ingest
+  FINRAG_DATA=data-bench uv run finrag eval eval/suites/financebench.jsonl --retrieval-only
+  uv run finrag compare eval/reports/a.json eval/reports/b.json
 """
 
 from __future__ import annotations
@@ -124,6 +130,33 @@ def cmd_eval(args, s) -> None:
     sys.exit(0 if all(g["pass"] for g in report["gates"].values()) else 1)
 
 
+def cmd_bench_build(args, s) -> None:
+    from dataclasses import replace
+
+    from finrag import edgar, financebench
+
+    data = Path(args.data).resolve()
+    if data == s.data_dir.resolve():
+        sys.exit(f"{data} is the demo corpus (FINRAG_DATA): the bench needs its own.")
+    bench = replace(s, data_dir=data)
+    client = edgar.EdgarClient(s.sec_user_agent)
+    r = financebench.build(client, bench, data / "financebench-src", Path(args.suite))
+    c = r["counts"]
+    print(f"kept {c['answerable_kept']} answerable + {c['unanswerable_variants']} "
+          f"unanswerable, excluded {c['excluded']}, {c['filings']} filings")
+    print(f"suite sha256 {r['suite_sha256']}")
+
+
+def cmd_compare(args, s) -> None:
+    from finrag import evaluate
+
+    a, b = (json.loads(Path(p).read_text(encoding="utf-8")) for p in (args.a, args.b))
+    r = evaluate.compare(a, b)
+    print(f"{r['n_paired']} paired cases: A correct {r['a_correct']}, B correct "
+          f"{r['b_correct']}; only A {len(r['only_a'])}, only B {len(r['only_b'])}; "
+          f"McNemar p = {r['mcnemar_p']}")
+
+
 def _print_usage(usage: dict | None) -> None:
     if usage:
         print(f"model {usage['model']}: {usage['prompt_tokens']}+{usage['completion_tokens']} "
@@ -154,9 +187,16 @@ def main() -> None:
     e.add_argument("suite")
     e.add_argument("--out", default="eval/reports/latest.json")
     e.add_argument("--retrieval-only", action="store_true", help="skip the LLM (fast)")
+    b = sub.add_parser("bench-build", help="build the frozen FinanceBench suite + corpus")
+    b.add_argument("--data", default="data-bench", help="the bench corpus directory")
+    b.add_argument("--suite", default="eval/suites/financebench.jsonl")
+    c = sub.add_parser("compare", help="two eval reports, paired case by case (McNemar)")
+    c.add_argument("a")
+    c.add_argument("b")
     args = p.parse_args()
     {"fetch": cmd_fetch, "ingest": cmd_ingest, "ask": cmd_ask, "agent": cmd_agent,
-     "eval": cmd_eval}[args.cmd](args, _settings(args))
+     "eval": cmd_eval, "bench-build": cmd_bench_build,
+     "compare": cmd_compare}[args.cmd](args, _settings(args))
 
 
 def _settings(args):

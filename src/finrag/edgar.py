@@ -22,6 +22,7 @@ import httpx
 
 TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik:010d}.json"
+SUBMISSIONS_PAGE_URL = "https://data.sec.gov/submissions/{name}"
 ARCHIVE_URL = "https://www.sec.gov/Archives/edgar/data/{cik}/{acc}/{doc}"
 FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json"
 MIN_INTERVAL = 0.12  # seconds between requests: stays under the 10 req/s limit
@@ -104,24 +105,28 @@ class EdgarClient:
             if form not in count or count[form] >= limit:
                 continue
             count[form] += 1
-            acc = recent["accessionNumber"][i]
-            out.append(
-                Filing(
-                    ticker=ticker.upper(),
-                    company=data["name"],
-                    cik=cik,
-                    form=form,
-                    accession=acc,
-                    filed=recent["filingDate"][i],
-                    period=recent["reportDate"][i],
-                    url=ARCHIVE_URL.format(
-                        cik=cik, acc=acc.replace("-", ""), doc=recent["primaryDocument"][i]
-                    ),
-                )
-            )
+            out.append(_filing(ticker, data["name"], cik, recent, i))
             if all(c >= limit for c in count.values()):
                 break
         return out
+
+    def all_filings(self, ticker: str, cik: int, forms: tuple[str, ...]) -> list[Filing]:
+        """Every filing of these forms, the whole history, newest first.
+
+        `recent` holds only the latest ~1,000 filings: a bank that files hundreds of
+        prospectuses a year pushes its 2021 10-Q out of it. Older ones sit in the
+        paged files listed under filings.files, one request each.
+        """
+        data = self._get(SUBMISSIONS_URL.format(cik=cik)).json()
+        blocks = [data["filings"]["recent"]]
+        for page in data["filings"].get("files", []):
+            blocks.append(self._get(SUBMISSIONS_PAGE_URL.format(name=page["name"])).json())
+        out: list[Filing] = []
+        for b in blocks:
+            for i, form in enumerate(b["form"]):
+                if form in forms:
+                    out.append(_filing(ticker, data["name"], cik, b, i))
+        return sorted(out, key=lambda f: f.filed, reverse=True)
 
     def download(self, filing: Filing) -> str:
         return self._get(filing.url).text
@@ -129,6 +134,17 @@ class EdgarClient:
     def company_facts(self, cik: int) -> dict:
         """Every XBRL figure a company reported (us-gaap concepts, by period)."""
         return self._get(FACTS_URL.format(cik=cik)).json()
+
+
+def _filing(ticker: str, company: str, cik: int, block: dict, i: int) -> Filing:
+    """Row i of a submissions block (column arrays: form[], accessionNumber[], ...)."""
+    acc = block["accessionNumber"][i]
+    return Filing(
+        ticker=ticker.upper(), company=company, cik=cik, form=block["form"][i],
+        accession=acc, filed=block["filingDate"][i], period=block["reportDate"][i],
+        url=ARCHIVE_URL.format(cik=cik, acc=acc.replace("-", ""),
+                               doc=block["primaryDocument"][i]),
+    )
 
 
 def cik_for(tickers_json: dict, ticker: str) -> tuple[int, str]:
