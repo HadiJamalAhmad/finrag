@@ -1,0 +1,1834 @@
+{
+  "generated_at": "2026-11-13T16:14:06+00:00",
+  "n_cases": 235,
+  "mode": "retrieval-only",
+  "recall@5": 0.656,
+  "mrr": 0.396,
+  "false_accept_rate": 0.018,
+  "correct_refusal_rate": 0.982,
+  "over_refusal_rate": 0.295,
+  "n_answerable": 122,
+  "n_unanswerable": 113,
+  "ci95": {
+    "recall@5": [
+      0.568,
+      0.734
+    ],
+    "false_accept_rate": [
+      0.005,
+      0.062
+    ],
+    "over_refusal_rate": [
+      0.221,
+      0.381
+    ]
+  },
+  "by_type": {
+    "domain-relevant": {
+      "n": 47,
+      "recall@5": 0.553,
+      "refused": 0.383
+    },
+    "metrics-generated": {
+      "n": 50,
+      "recall@5": 0.7,
+      "refused": 0.1
+    },
+    "novel-generated": {
+      "n": 25,
+      "recall@5": 0.76,
+      "refused": 0.52
+    },
+    "unanswerable-rule": {
+      "n": 113,
+      "recall@5": null,
+      "refused": 0.982
+    }
+  },
+  "cases": [
+    {
+      "id": "financebench_id_03029",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_04672",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_00499",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01226",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01865",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_00807",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01858",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_02987",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_07966",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_04735",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_07507",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_03856",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_00438",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00591",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_01319",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00540",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_10420",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_06655",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_08135",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_08286",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_03882",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_01936",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_00799",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01079",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01148",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00684",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_03069",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_00222",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00995",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01198",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00917",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01279",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00563",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_00757",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_01028",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00723",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00720",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01351",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01964",
+      "answerable": true,
+      "refused": true,
+      "stage": "scope",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_01981",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_05718",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_04254",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_00070",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_02608",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_04417",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_00685",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01077",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01275",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00288",
+      "answerable": true,
+      "refused": true,
+      "stage": "scope",
+      "hit@5": false,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_00460",
+      "answerable": true,
+      "refused": true,
+      "stage": "scope",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_01902",
+      "answerable": true,
+      "refused": true,
+      "stage": "scope",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_04660",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_03838",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_07661",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_10285",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_00517",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01091",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00678",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01290",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00464",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": false,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_00494",
+      "answerable": true,
+      "refused": true,
+      "stage": "scope",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_00585",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_03473",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_09724",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_06272",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_10130",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_02981",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_01346",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00005",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_04209",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_05915",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_00790",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01107",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01244",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_04103",
+      "answerable": true,
+      "refused": true,
+      "stage": "scope",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_03471",
+      "answerable": true,
+      "refused": true,
+      "stage": "scope",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_04854",
+      "answerable": true,
+      "refused": true,
+      "stage": "scope",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_10136",
+      "answerable": true,
+      "refused": true,
+      "stage": "scope",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_00956",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00669",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00711",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00299",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_02119",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_00394",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_00206",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_02049",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_10499",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_04412",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_03031",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_03718",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_04171",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_03849",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_01254",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00407",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_04700",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_00552",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_04458",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_03282",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_04302",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_03531",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_04080",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_01163",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00080",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_04980",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_01009",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00735",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_01328",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_03620",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": false,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_04481",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_00302",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_00702",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_02416",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_00724",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": false,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_00521",
+      "answerable": true,
+      "refused": true,
+      "stage": "evidence",
+      "hit@5": false,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00859",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_02024",
+      "answerable": true,
+      "refused": true,
+      "stage": "scope",
+      "hit@5": true,
+      "type": "novel-generated"
+    },
+    {
+      "id": "financebench_id_00216",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00215",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_00566",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "domain-relevant"
+    },
+    {
+      "id": "financebench_id_06247",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_04784",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_06741",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "hit@5": true,
+      "type": "metrics-generated"
+    },
+    {
+      "id": "financebench_id_00005-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00070-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00080-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00215-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00216-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00222-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "evidence",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00299-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00302-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00394-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00438-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00460-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00494-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00499-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00517-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00521-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00540-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00552-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00563-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00566-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00585-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00591-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00678-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00684-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00702-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00711-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00720-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00723-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00724-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00735-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00757-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00790-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00799-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00807-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00859-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00917-year",
+      "answerable": false,
+      "refused": false,
+      "stage": "answered",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_00995-year",
+      "answerable": false,
+      "refused": false,
+      "stage": "answered",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01009-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01028-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01077-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01079-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01091-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01107-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01148-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01163-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01198-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01226-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01244-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01254-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01275-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01279-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "evidence",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01290-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01319-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01328-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01346-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01351-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01865-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01902-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01936-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01964-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_01981-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_02024-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_02119-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_02416-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_02608-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_02981-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_02987-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_03029-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_03031-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_03069-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_03282-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_03471-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_03473-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_03531-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_03620-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_03718-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_03838-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_03849-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_03856-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_03882-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04080-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04103-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04171-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04209-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04254-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04302-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04412-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04417-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04458-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04481-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04660-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04672-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04700-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04735-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04784-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04854-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_04980-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_05718-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_05915-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_06247-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_06272-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_06655-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_06741-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_07507-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_07661-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_07966-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_08135-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_08286-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_09724-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_10130-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_10136-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_10285-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_10420-year",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    },
+    {
+      "id": "financebench_id_10499-company",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "type": "unanswerable-rule"
+    }
+  ],
+  "gates": {
+    "recall@5": {
+      "value": 0.656,
+      "threshold": ">= 0.8",
+      "pass": false
+    },
+    "mrr": {
+      "value": 0.396,
+      "threshold": ">= 0.6",
+      "pass": false
+    },
+    "false_accept_rate": {
+      "value": 0.018,
+      "threshold": "<= 0.1",
+      "pass": true
+    }
+  }
+}

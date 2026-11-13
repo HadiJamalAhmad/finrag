@@ -277,6 +277,64 @@ the corpus, a year not covered, a forecast, and a detail no filing contains.
 Gates, written before the first run: recall@5 ≥ 0.80, MRR ≥ 0.60, false accept rate ≤ 0.10.
 `finrag eval` exits non-zero when a gate fails.
 
+### Held-out: FinanceBench (2026-11-13)
+
+`seed.jsonl` is the development set: we wrote it and tuned `min_score` on it. The
+held-out test set is built from questions nobody here wrote: the open sample of
+[FinanceBench](https://github.com/patronus-ai/financebench) (Patronus AI,
+arXiv 2311.11944, CC BY-NC 4.0), written by financial analysts. Protocol, committed
+before the build: [`eval/suites/financebench.md`](eval/suites/financebench.md).
+
+- **Suite v2, frozen** (SHA-256 checked by a test): 122 answerable questions on 72
+  filings of 32 companies, resolved to EDGAR by matching the evidence text; 113
+  unanswerable variants by fixed rule (year moved 15 years back, or an SEC-listed
+  company outside the corpus); 28 excluded with their reason (23 on 8-Ks or earnings
+  releases, 5 with evidence outside any parsed Item). Build v1 was discarded before
+  any run (it matched J&J 2022 to the prior year's 10-K through its comparatives).
+- Own corpus (`data-bench/`, 19,394 chunks), the demo corpus untouched.
+
+```bash
+uv run finrag bench-build
+FINRAG_DATA=data-bench uv run finrag ingest
+FINRAG_DATA=data-bench uv run finrag eval eval/suites/financebench.jsonl --retrieval-only
+```
+
+**First run, retrieval-only** (scope + retrieval + evidence gate, no LLM):
+
+| Metric | Value | 95% interval | Gate |
+|---|---|---|---|
+| recall@5 (right Item) | **0.656** | 0.568–0.734 | ≥ 0.80 **FAIL** |
+| MRR | **0.396** | | ≥ 0.60 **FAIL** |
+| False accept rate | 0.018 (2/113) | 0.005–0.062 | ≤ 0.10 PASS |
+| Over-refusal rate | 0.295 (36/122) | 0.221–0.381 | (no gate) |
+
+On the seed suite the same system scored recall@5 0.917 and MRR 0.861. The gap is
+the point of a held-out set. Where it comes from (diagnostics, not gates):
+
+- **Right filing, wrong Item: 29 of the 42 misses.** The same figure sits in the MD&A
+  (Item 7) and in the financial statements (Item 8); FinanceBench cites one page, the
+  retriever often returns the other. Filing-level recall@5 is 0.893. With the scope
+  filters the answer path applies (ticker, year), section recall@5 is 0.770.
+- **The evidence threshold was fitted to our own phrasing.** `min_score` 0.72 came
+  from the seed suite; analysts write longer, instruction-like questions, and the
+  best passage scores lower: a quarter of in-scope questions sit below 0.725.
+  26 answerable questions are refused at `evidence`.
+- **Scope over-refusals (10):** all-caps abbreviations (FCF, CCC, ...) read as
+  tickers of companies outside the corpus, and retailers' fiscal years ("Q2 of
+  FY2024" for Best Buy is a period ending July 2023) read as a year not covered.
+- **The 2 false accepts** are the predicted ones: "FY07" (two-digit year) is not read
+  by the year rule.
+
+Per question type, recall@5: metrics-generated 0.70, domain-relevant 0.55,
+novel-generated 0.76.
+
+**What this suite is now:** seen. Fixes (scope abbreviations, fiscal-year labels,
+the threshold, hybrid search for Item 7 vs 8) are made on the development set; any
+FinanceBench re-run after them is reported as post-hoc, next to this first number,
+which stays the honest one. Gates are not relaxed. Next: the full run (LLM answers,
+numeric accuracy within 1%, a judge from another model family checked by hand), and
+the agent mode on the questions that need a calculation.
+
 ## Status (2026-11-09): agent mode
 
 Added: `agent.py` (LangGraph), `tools.py` (three tools + ToolGuard), SEC XBRL facts in
