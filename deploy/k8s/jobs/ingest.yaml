@@ -1,0 +1,50 @@
+# Parse, chunk, embed and index the corpus into Qdrant (`finrag ingest`). Reads the
+# corpus volume read-only and writes only to the Qdrant server. Re-run after any change
+# to the documents, parse.py or chunk.py (CLAUDE.md): delete the Job, apply it again.
+# While it rebuilds the collection the API pods report not ready (/ready) and get no
+# traffic, so nobody is answered from a half-built index.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: finrag-ingest
+  labels:
+    finrag/job: ingest
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        finrag/client-of-index: "true"
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: ingest
+          image: finrag
+          command: [finrag, ingest]
+          envFrom:
+            - configMapRef: {name: finrag-config}
+          volumeMounts:
+            - name: corpus
+              mountPath: /data
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests: {cpu: 250m, memory: 512Mi}
+            limits: {memory: 2Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+      volumes:
+        - name: corpus
+          persistentVolumeClaim:
+            claimName: finrag-corpus
+            readOnly: true
+        - name: tmp
+          emptyDir: {}

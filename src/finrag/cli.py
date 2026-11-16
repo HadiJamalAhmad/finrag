@@ -16,6 +16,17 @@ from pathlib import Path
 from finrag.config import get_settings
 
 
+def cmd_pull_model(args, s) -> None:
+    """Load the model into the Ollama server at OLLAMA_URL, digest checked (deploy/k8s)."""
+    from finrag.models import pull_verified
+
+    try:
+        digest = pull_verified(s.preset, s.ollama_url)
+    except ValueError as exc:
+        sys.exit(str(exc))
+    print(f"{s.preset.model_id} ready at {s.ollama_url}, digest {digest[:12]} matches the pin")
+
+
 def _scope(settings):
     from finrag import edgar, scope
 
@@ -53,8 +64,8 @@ def cmd_ingest(args, s) -> None:
               f"{found or 'NONE: check the parser'}")
         chunks += chunk_filing(f, sections)
     store = Store(s)
-    store.reset(len(embed(["dimension probe"], s.embed_model)[0]))
-    print(f"indexed {store.add(chunks)} chunks into {s.collection}")
+    n = store.rebuild(chunks, len(embed(["dimension probe"], s.embed_model)[0]))
+    print(f"indexed {n} chunks into {s.collection}")
 
 
 def cmd_ask(args, s) -> None:
@@ -154,9 +165,11 @@ def main() -> None:
     e.add_argument("suite")
     e.add_argument("--out", default="eval/reports/latest.json")
     e.add_argument("--retrieval-only", action="store_true", help="skip the LLM (fast)")
+    sub.add_parser("pull-model", parents=[common],
+                   help="load the model into the Ollama server at OLLAMA_URL, digest checked")
     args = p.parse_args()
     {"fetch": cmd_fetch, "ingest": cmd_ingest, "ask": cmd_ask, "agent": cmd_agent,
-     "eval": cmd_eval}[args.cmd](args, _settings(args))
+     "eval": cmd_eval, "pull-model": cmd_pull_model}[args.cmd](args, _settings(args))
 
 
 def _settings(args):

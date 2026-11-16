@@ -123,6 +123,26 @@ def get(name: str | None = None) -> ModelPreset:
     return MODEL_REGISTRY[name]
 
 
+def pull_verified(preset: ModelPreset, ollama_url: str, client=None) -> str:
+    """Pull *preset* into a running Ollama server and return its digest; ValueError when
+    the server ends up with other weights than the pin. The rule of deploy/pull_models.py
+    (Modal image build), over HTTP, for an Ollama that runs as its own service
+    (deploy/k8s): a tag is a moving pointer, the digest is the weights."""
+    import httpx
+
+    if preset.provider != "ollama" or not preset.digest:
+        raise ValueError(f"{preset.name} is not a pinned Ollama model")
+    http = client or httpx.Client(timeout=httpx.Timeout(30.0, read=1800.0))
+    http.post(f"{ollama_url}/api/pull",
+              json={"model": preset.model_id, "stream": False}).raise_for_status()
+    tags = http.get(f"{ollama_url}/api/tags").raise_for_status().json()["models"]
+    pulled = {m["name"]: m["digest"] for m in tags}.get(preset.model_id, "")
+    if pulled != preset.digest:
+        raise ValueError(f"digest mismatch for {preset.model_id}: pinned "
+                         f"{preset.digest[:12]}, server has {pulled[:12] or 'nothing'}")
+    return pulled
+
+
 def read_lock(path: Path = LOCK_PATH) -> dict[str, str]:
     """deploy/models.lock as {Ollama tag: digest}."""
     out = {}

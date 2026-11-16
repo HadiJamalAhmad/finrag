@@ -1,0 +1,17 @@
+# Non-secret settings, read by the API and the Jobs (src/finrag/config.py).
+# The secret ones (FINRAG_API_KEY, optional FINRAG_INGEST_KEY) are in the Secret
+# `finrag-secrets`, created by ../up.sh and never committed.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: finrag-config
+data:
+  FINRAG_QDRANT_URL: http://qdrant:6333
+  OLLAMA_URL: http://ollama:11434
+  FINRAG_MODEL: llama-3b
+  FINRAG_DATA: /data
+  FINRAG_ENV: production
+  # Passages per embedding call: 64 at a time OOM-killed the ingestion Job at 2 GiB.
+  FINRAG_EMBED_BATCH: "16"
+  # The cost estimate assumes a GPU price; on this CPU cluster it is only indicative.
+  FINRAG_GPU: L4

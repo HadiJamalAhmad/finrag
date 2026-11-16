@@ -2,6 +2,8 @@
 #
 #   every push and pull request:  lint (ruff) + offline tests (pytest)
 #                                 dependency audit (pip-audit) + secret scan (gitleaks)
+#                                 Kubernetes: the image, the whole stack on a kind
+#                                 cluster, and the HTTP smoke test (deploy/k8s)
 #   push to main, all green:      deploy the backend to Modal
 #
 # The front end is not deployed here: Vercel builds web/ on every push to main
@@ -57,6 +59,28 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  kubernetes:
+    # The on-premises path, proven on every push: Docker image, kind cluster, Qdrant,
+    # Ollama with the pinned model (digest checked), ingestion Job, two API replicas,
+    # then real HTTP questions (deploy/k8s/smoke.sh). The one-filing sample corpus
+    # from the test fixtures: nothing contacts SEC. CPU inference, hence the timeout.
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: helm/kind-action@v1.12.0
+        with:
+          cluster_name: finrag
+          node_image: kindest/node:v1.32.2
+          version: v0.27.0
+      - run: CORPUS=sample WITH_LLM=1 deploy/k8s/up.sh
+      - if: failure()
+        run: |
+          kubectl -n finrag get all,pvc
+          kubectl -n finrag describe pods | tail -80
+          kubectl -n finrag logs deployment/finrag-api --tail=80 || true
 
   deploy:
     needs: [test, audit, secrets]

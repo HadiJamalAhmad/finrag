@@ -1,0 +1,17 @@
+# Only pyproject.toml, uv.lock, src/ and deploy/models.lock enter the image.
+.git
+.github
+.venv
+.env
+.env*
+data
+data-bench
+eval
+examples
+tests
+web
+deploy
+!deploy/models.lock
+**/__pycache__
+.pytest_cache
+.ruff_cache

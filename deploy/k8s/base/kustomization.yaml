@@ -1,0 +1,16 @@
+# finrag on Kubernetes: the long-running services. The Jobs (model pull, ingestion)
+# live in ../jobs and are applied by ../up.sh once the corpus is in place.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: finrag
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: finrag
+resources:
+  - namespace.yaml
+  - config.yaml
+  - corpus.yaml
+  - qdrant.yaml
+  - ollama.yaml
+  - api.yaml
+  - network.yaml

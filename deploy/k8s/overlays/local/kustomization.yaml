@@ -1,0 +1,11 @@
+# A local kind cluster (../../up.sh): the image built on this machine and loaded into
+# kind, never pulled from a registry. A production overlay would set the registry
+# image by digest here instead (images: newName: registry.example/finrag, digest: ...).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+images:
+  - name: finrag
+    newName: finrag
+    newTag: local

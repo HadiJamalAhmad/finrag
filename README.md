@@ -119,6 +119,73 @@ market risk answered from Item 7A (the Week 1 cross-reference fix); Tesla refuse
 refused at `model`. The agent route works but llama3.2:3b sometimes calls `calculate`
 before fetching any figure; the guard refuses it and the answer is a refusal.
 
+## On-premises deployment on Kubernetes (2026-11-16)
+
+The same backend without Modal, for a site where nothing may leave the infrastructure
+and nothing is downloaded at run time: `deploy/k8s/` (Kustomize, no Helm needed).
+
+```
+                 ┌──────────────── namespace finrag ─────────────────────────┐
+client ─► Service finrag-api ─► Deployment finrag-api ×2 (FastAPI, bge-small)  │
+                 │                   │  /health liveness, /ready readiness   │
+                 │                   ├─► Service qdrant ─► StatefulSet qdrant  (volume 2Gi)
+                 │                   ├─► Service ollama ─► Deployment ollama   (volume: weights)
+                 │                   └─  PVC finrag-corpus (read-only: filings, manifest)
+                 │  Job finrag-pull-model : model into Ollama, digest checked   │
+                 │  Job finrag-ingest     : corpus -> chunks -> Qdrant          │
+                 └───────────────────────────────────────────────────────────┘
+```
+
+| Kubernetes object | What it does here |
+|---|---|
+| `Deployment` finrag-api (2 replicas) | Stateless API; rolling update with `maxUnavailable: 0`, `PodDisruptionBudget` |
+| `StatefulSet` qdrant | The index on its own volume, which survives restarts and reschedules |
+| `Deployment` ollama | The LLM in the cluster: no question or passage leaves it |
+| `Job` finrag-pull-model | `finrag pull-model`: loads the model, **fails if the digest is not the pin** |
+| `Job` finrag-ingest | `finrag ingest` against the Qdrant server; re-run after a corpus change |
+| Probes | Liveness `/health` touches nothing; readiness `/ready` = index reachable, filled, manifest present |
+| `ConfigMap` / `Secret` | Settings / `FINRAG_API_KEY` (random, created in the cluster, never committed) |
+| `NetworkPolicy` | Only finrag's pods may reach Qdrant and Ollama |
+| Security context | Non-root, read-only root filesystem, no capabilities, `RuntimeDefault` seccomp |
+
+What the code needed for this (tested offline, `tests/test_deploy.py`):
+
+- **`FINRAG_QDRANT_URL`**: a Qdrant server instead of local mode, which locks its folder
+  to one process and so cannot serve two replicas.
+- **`x-api-key` checked by the app** when `FINRAG_API_KEY` is set (Modal did it before;
+  on any other platform the API would have been open). Probes need no key.
+- **`/ready`**: no traffic to a pod whose index is unreachable or empty, including while
+  the ingestion Job rebuilds the collection.
+- **Re-indexing without a gap** (`Store.rebuild`): the chunks go into a fresh
+  collection and the name the API reads (an alias) switches to it in one atomic step.
+  The first deployment showed why: deleting and refilling in place let pods report
+  ready, and answer, from a half-built index.
+- **`FINRAG_EMBED_BATCH`**: the ingestion Job was OOM-killed at 2 GiB embedding 64
+  passages at a time (attention buffers); 16 at a time fits, with the same vectors.
+- **The image** (`Dockerfile`) bakes in the embedder and sets Hugging Face offline;
+  checked with `docker run --network none`.
+
+Run it locally (needs Docker, [kind](https://kind.sigs.k8s.io) and kubectl):
+
+```bash
+deploy/k8s/up.sh                 # cluster, image, services, corpus, model, ingestion, smoke test
+CORPUS=sample deploy/k8s/up.sh   # the one-filing sample from the test fixtures
+WITH_LLM=0 deploy/k8s/up.sh      # low-memory machine: no Ollama, retrieval and refusals only
+CONTEXT=docker-desktop deploy/k8s/up.sh   # Docker Desktop's built-in Kubernetes instead of kind
+deploy/k8s/down.sh
+```
+
+`deploy/k8s/smoke.sh` then checks, over HTTP: liveness and readiness, 401 without or
+with a wrong key, 200 with the right one, two API replicas behind the Service, a
+company outside the corpus refused at `scope`, and an in-scope question answered by the
+in-cluster LLM with its sources. CI runs all of it on a kind cluster on every push
+(job `kubernetes`, sample corpus).
+
+For a real site: a registry image pinned by digest in an overlay, a `ReadWriteMany`
+class for the corpus when the replicas span nodes, a GPU node for Ollama
+(`nvidia.com/gpu`), an Ingress with TLS, and the Ollama volume pre-loaded from an
+approved copy where the cluster has no internet (the pull Job then only verifies).
+
 ## Three models (2026-11-09)
 
 Like JobHack: a registry of open-weight models (`src/finrag/models.py`), each pinned by

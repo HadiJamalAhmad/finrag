@@ -35,6 +35,12 @@ class Settings:
         default_factory=lambda: Path(os.environ.get("FINRAG_DATA", ROOT / "data"))
     )
     collection: str = os.environ.get("FINRAG_COLLECTION", "sec_filings")
+    # Empty: Qdrant in local mode under data/qdrant (one process). A URL
+    # (http://qdrant:6333): a Qdrant server shared by every API replica (Kubernetes).
+    qdrant_url: str = os.environ.get("FINRAG_QDRANT_URL", "")
+    # Passages per embedding call. 0: fastembed's default. Lower caps memory (16 in
+    # deploy/k8s, where the ingestion Job has a 2 GiB limit); results are the same.
+    embed_batch: int = int(os.environ.get("FINRAG_EMBED_BATCH", "0"))
     embed_model: str = os.environ.get("FINRAG_EMBED_MODEL", "BAAI/bge-small-en-v1.5")
     ollama_url: str = os.environ.get("OLLAMA_URL", "http://localhost:11434")
     # A preset name from finrag.models.MODEL_REGISTRY (llama-3b | qwen3-4b | mistral-24b).
