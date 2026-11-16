@@ -1,6 +1,6 @@
 """Documents mode: service-public.fr sheets, French prompt and refusal, no company scope.
 
-Fixtures sp_F18704.xml and sp_other_F10041.xml are real sheets from the service-public.fr
+Fixtures sp_F18704.xml, sp_F1709.xml and sp_other_F10041.xml are real sheets from the service-public.fr
 open dataset (DILA, Licence Ouverte / Etalab 2.0), unmodified. Offline: fake stores.
 """
 
@@ -160,4 +160,5 @@ def test_ready_needs_no_sec_manifest_in_documents_mode(tmp_path, monkeypatch):
 def test_the_cluster_sample_is_what_the_reader_makes_of_the_fixture():
     """deploy/k8s/sample-fr (CI's French corpus) must not drift from the parser."""
     sample = Path(__file__).parent.parent / "deploy" / "k8s" / "sample-fr"
-    assert documents.load(sample) == [documents.parse_sheet(SHEET)]
+    sheet = (FIX / "sp_F1709.xml").read_bytes()  # "Peut-on obtenir un passeport gratuitement ?"
+    assert documents.load(sample) == [documents.parse_sheet(sheet)]

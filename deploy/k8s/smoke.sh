@@ -21,8 +21,9 @@ if [ "$CORPUS" = sample ]; then
   IN_Q="Who supplies Acme's precision gears?"
 elif [ "$CORPUS" = fr ] || [ "$CORPUS" = fr-sample ]; then
   # Documents mode has no company scope: an off-topic question meets the evidence gate.
+  # The eval's own case for the sample's sheet (F1709, eval/suites/fr-interieur.jsonl,
+  # "passeport-gratuit"), which the full eval shows answered by llama3.2:3b.
   IN_Q="Dans quels cas un passeport est-il délivré gratuitement ?"
-  [ "$CORPUS" = fr-sample ] &&     IN_Q="J'ai retrouvé mon passeport après avoir déclaré son vol, puis-je encore l'utiliser ?"
   OUT_Q="Quelle est la capitale de l'Australie ?"
   OUT_STAGE=evidence
   OUT_WHAT="an off-topic question is refused at the evidence stage, in French"

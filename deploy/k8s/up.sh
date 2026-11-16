@@ -33,7 +33,7 @@ step() { printf '\n== %s\n' "$*"; }
 OVERLAY=local
 if [ "${CORPUS:-}" = fr ] || [ "${CORPUS:-}" = fr-sample ]; then
   OVERLAY=fr
-  # fr: the 45 sheets in data/docs. fr-sample: one sheet, committed (what CI runs).
+  # fr: the 45 sheets in data/docs. fr-sample: one sheet (F1709), committed (what CI runs).
   SRC=data/docs; [ "$CORPUS" = fr-sample ] && SRC=deploy/k8s/sample-fr
   [ -n "$(ls "$SRC"/*.json 2>/dev/null)" ] || { echo "no $SRC: run uv run finrag fetch-docs" >&2; exit 1; }
   STAGE=$(mktemp -d)
