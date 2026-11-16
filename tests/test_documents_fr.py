@@ -1,7 +1,8 @@
 """Documents mode: service-public.fr sheets, French prompt and refusal, no company scope.
 
-Fixtures sp_F18704.xml, sp_F1709.xml and sp_other_F10041.xml are real sheets from the service-public.fr
-open dataset (DILA, Licence Ouverte / Etalab 2.0), unmodified. Offline: fake stores.
+Fixtures sp_F18704.xml, sp_F1709.xml and sp_other_F10041.xml are real sheets from the
+service-public.fr open dataset (DILA, Licence Ouverte / Etalab 2.0), unmodified. Offline:
+fake stores.
 """
 
 import zipfile
