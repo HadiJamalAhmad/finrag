@@ -56,7 +56,32 @@ class Generation:
     reasoning: str | None = None
 
 
-def build_prompt(question: str, hits: list[tuple[float, dict]]) -> str:
+# Documents mode (FINRAG_DOMAIN=documents): any document corpus, here French public
+# administration pages. The refusal is in French because the corpus and its users are;
+# the model is told to answer in the question's language.
+REFUSAL_DOCS = "Je ne sais pas d'après les documents fournis."
+
+PROMPT_DOCS = """You are an assistant for public administration documents. Answer ONLY from
+the numbered excerpts below, in the language of the question. Cite every sentence with
+its excerpt number, like [1] or [2][3]. Copy amounts, delays and dates exactly as written.
+If the excerpts do not contain the answer, reply exactly: {refusal}
+
+Excerpts:
+{context}
+
+Question: {question}
+Answer:"""
+
+
+def refusal_for(settings: Settings) -> str:
+    return REFUSAL_DOCS if settings.domain == "documents" else REFUSAL
+
+
+def build_prompt(question: str, hits: list[tuple[float, dict]], domain: str = "sec") -> str:
+    if domain == "documents":
+        context = "\n\n".join(f"[{i}] ({p['section_title']})\n{p['text']}"
+                              for i, (_, p) in enumerate(hits, 1))
+        return PROMPT_DOCS.format(refusal=REFUSAL_DOCS, context=context, question=question)
     context = "\n\n".join(f"[{i}] ({p['ticker']} {p['form']} {p['period']}, {p['section_title']})\n"
                           f"{p['text']}" for i, (_, p) in enumerate(hits, 1))
     return PROMPT.format(refusal=REFUSAL, context=context, question=question)
@@ -118,14 +143,19 @@ def answer(question: str, sc: scope.Scope, store, settings: Settings, llm=genera
 
 def _answer(question: str, sc: scope.Scope, store, settings: Settings, llm, obs,
             groups: list[str] | None = None) -> Answer:
+    refusal = refusal_for(settings)
     with obs.child("check-scope", "guardrail", input=question) as sp:
-        decision = scope.check(question, sc)
+        # Companies and fiscal years are SEC notions. A documents corpus has neither, so
+        # nothing is refused here: an off-topic question meets the evidence gate instead.
+        decision = (scope.ScopeDecision(True, "documents mode: no company scope",
+                                        frozenset(), frozenset())
+                    if settings.domain == "documents" else scope.check(question, sc))
         sp.update(output={"in_scope": decision.in_scope, "tickers": sorted(decision.tickers),
                           "years": sorted(decision.years), "reason": decision.reason})
         if not decision.in_scope:
             sp.warn(decision.reason)
     if not decision.in_scope:
-        return Answer(question, REFUSAL, True, "scope", decision.reason)
+        return Answer(question, refusal, True, "scope", decision.reason)
 
     with obs.child("retrieve-passages", "retriever", input=question) as sp:
         extra = {"groups": frozenset(groups)} if groups is not None else {}
@@ -149,10 +179,10 @@ def _answer(question: str, sc: scope.Scope, store, settings: Settings, llm, obs,
             sp.warn("best retrieval score below min_score")
     if not passed:
         shown = f"{best:.3f}" if best is not None else "none"
-        return Answer(question, REFUSAL, True, "evidence",
+        return Answer(question, refusal, True, "evidence",
                       f"best score {shown} < {settings.min_score}", sources)
 
-    prompt = build_prompt(question, hits)
+    prompt = build_prompt(question, hits, settings.domain)
     preset = settings.preset
     with obs.child("generate-answer", "generation", model=preset.model_id,
                    model_parameters=model_parameters(preset),
@@ -170,9 +200,9 @@ def _answer(question: str, sc: scope.Scope, store, settings: Settings, llm, obs,
                    **_usage_fields(usage))
     problem = unfinished(text, done)
     if problem:  # cut at the cap, empty, or reasoning that never ended: not an answer
-        return Answer(question, REFUSAL, True, "model", problem, sources, usage=usage)
-    if REFUSAL.lower().rstrip(".") in text.lower():
-        return Answer(question, REFUSAL, True, "model", "the model found no answer", sources,
+        return Answer(question, refusal, True, "model", problem, sources, usage=usage)
+    if refusal.lower().rstrip(".") in text.lower():
+        return Answer(question, refusal, True, "model", "the model found no answer", sources,
                       usage=usage)
 
     with obs.child("check-figures", "guardrail", input=text) as sp:
@@ -183,7 +213,7 @@ def _answer(question: str, sc: scope.Scope, store, settings: Settings, llm, obs,
         if not check.grounded:
             sp.warn("figures not found in the cited filings")
     if not check.grounded:
-        return Answer(question, REFUSAL, True, "numbers",
+        return Answer(question, refusal, True, "numbers",
                       "figures not found in the cited filings", sources, check.ungrounded,
                       usage=usage)
     return Answer(question, text, False, "answered", "ok",

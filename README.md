@@ -102,7 +102,8 @@ browser ─► Vercel  web/index.html, web/api/{query,agent}.js   (adds x-api-ke
 - **CI/CD** (`.github/workflows/ci.yml`). Every push and PR: ruff, the offline tests,
   `pip-audit` on the locked dependencies and `gitleaks` on the whole history. A push to
   `main` with all of them green deploys the backend to Modal (secrets `MODAL_TOKEN_ID`,
-  `MODAL_TOKEN_SECRET`); Vercel builds `web/` from the same push (Root Directory = web).
+  `MODAL_TOKEN_SECRET`, and the repository variable `MODAL_DEPLOY=on`, off while the
+  account has no credits); Vercel builds `web/` from the same push (Root Directory = web).
 - **The corpus is a Modal Volume** (`finrag-data`), not part of the image: `data/` is
   gitignored, so CI deploys code and models while the index stays what was uploaded.
   After any re-ingest, from the machine that ran it:
@@ -118,6 +119,132 @@ market risk answered from Item 7A (the Week 1 cross-reference fix); Tesla refuse
 `scope`; the NVIDIA share-price forecast passes the evidence gate (0.799) and is
 refused at `model`. The agent route works but llama3.2:3b sometimes calls `calculate`
 before fetching any figure; the guard refuses it and the answer is a refusal.
+
+## On-premises deployment on Kubernetes (2026-11-16)
+
+The same backend without Modal, for a site where nothing may leave the infrastructure
+and nothing is downloaded at run time: `deploy/k8s/` (Kustomize, no Helm needed).
+
+```
+                 ┌──────────────── namespace finrag ─────────────────────────┐
+client ─► Service finrag-api ─► Deployment finrag-api ×2 (FastAPI, bge-small)  │
+                 │                   │  /health liveness, /ready readiness   │
+                 │                   ├─► Service qdrant ─► StatefulSet qdrant  (volume 2Gi)
+                 │                   ├─► Service ollama ─► Deployment ollama   (volume: weights)
+                 │                   └─  PVC finrag-corpus (read-only: filings, manifest)
+                 │  Job finrag-pull-model : model into Ollama, digest checked   │
+                 │  Job finrag-ingest     : corpus -> chunks -> Qdrant          │
+                 └───────────────────────────────────────────────────────────┘
+```
+
+| Kubernetes object | What it does here |
+|---|---|
+| `Deployment` finrag-api (2 replicas) | Stateless API; rolling update with `maxUnavailable: 0`, `PodDisruptionBudget` |
+| `StatefulSet` qdrant | The index on its own volume, which survives restarts and reschedules |
+| `Deployment` ollama | The LLM in the cluster: no question or passage leaves it |
+| `Job` finrag-pull-model | `finrag pull-model`: loads the model, **fails if the digest is not the pin** |
+| `Job` finrag-ingest | `finrag ingest` against the Qdrant server; re-run after a corpus change |
+| Probes | Liveness `/health` touches nothing; readiness `/ready` = index reachable, filled, manifest present |
+| `ConfigMap` / `Secret` | Settings / `FINRAG_API_KEY` (random, created in the cluster, never committed) |
+| `NetworkPolicy` | Only finrag's pods may reach Qdrant and Ollama |
+| Security context | Non-root, read-only root filesystem, no capabilities, `RuntimeDefault` seccomp |
+
+What the code needed for this (tested offline, `tests/test_deploy.py`):
+
+- **`FINRAG_QDRANT_URL`**: a Qdrant server instead of local mode, which locks its folder
+  to one process and so cannot serve two replicas.
+- **`x-api-key` checked by the app** when `FINRAG_API_KEY` is set (Modal did it before;
+  on any other platform the API would have been open). Probes need no key.
+- **`/ready`**: no traffic to a pod whose index is unreachable or empty, including while
+  the ingestion Job rebuilds the collection.
+- **Re-indexing without a gap** (`Store.rebuild`): the chunks go into a fresh
+  collection and the name the API reads (an alias) switches to it in one atomic step.
+  The first deployment showed why: deleting and refilling in place let pods report
+  ready, and answer, from a half-built index.
+- **`FINRAG_EMBED_BATCH`**: the ingestion Job was OOM-killed at 2 GiB embedding 64
+  passages at a time (attention buffers); 16 at a time fits, with the same vectors.
+- **The image** (`Dockerfile`) bakes in the embedder and sets Hugging Face offline;
+  checked with `docker run --network none`.
+
+Run it locally (needs Docker, [kind](https://kind.sigs.k8s.io) and kubectl):
+
+```bash
+deploy/k8s/up.sh                 # cluster, image, services, corpus, model, ingestion, smoke test
+CORPUS=sample deploy/k8s/up.sh   # the one-filing sample from the test fixtures
+WITH_LLM=0 deploy/k8s/up.sh      # low-memory machine: no Ollama, retrieval and refusals only
+CONTEXT=docker-desktop deploy/k8s/up.sh   # Docker Desktop's built-in Kubernetes instead of kind
+deploy/k8s/down.sh
+```
+
+`deploy/k8s/smoke.sh` then checks, over HTTP: liveness and readiness, 401 without or
+with a wrong key, 200 with the right one, two API replicas behind the Service, a
+company outside the corpus refused at `scope`, and an in-scope question answered by the
+in-cluster LLM with its sources. CI runs all of it on a kind cluster on every push
+(job `kubernetes`, sample corpus).
+
+For a real site: a registry image pinned by digest in an overlay, a `ReadWriteMany`
+class for the corpus when the replicas span nodes, a GPU node for Ollama
+(`nvidia.com/gpu`), an Ingress with TLS, and the Ollama volume pre-loaded from an
+approved copy where the cluster has no internet (the pull Job then only verifies).
+
+## French public-administration documents (2026-11-16)
+
+The same pipeline on another kind of corpus: **documents mode** (`FINRAG_DOMAIN=documents`),
+here the practical sheets of service-public.fr to which the **ministry of the Interior**
+contributes: identity card, passport, electoral rolls, proxy vote, driving licence,
+surveillance cameras, usage names. 45 sheets, 598 passages, in French.
+
+```bash
+uv run finrag fetch-docs                                    # official open dataset -> data/docs
+FINRAG_DOMAIN=documents FINRAG_EMBED_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 \
+  FINRAG_COLLECTION=docs_fr FINRAG_MIN_SCORE=0.61 FINRAG_TOP_K=3 uv run finrag ingest
+CORPUS=fr deploy/k8s/up.sh                                  # the same on Kubernetes (overlay fr)
+```
+
+- **Source and selection** (`finrag.documents`): the DILA's open dataset under the
+  Licence Ouverte / Etalab 2.0, attribution in `data/docs/SOURCE.md`. A sheet is kept when
+  its own `dc:contributor` names the ministry of the Interior: no sheet is picked by hand.
+  Each section of a sheet is chunked apart, so a citation names the sheet and the section.
+- **What documents mode changes:** no company or fiscal-year scope (a year in a question
+  would otherwise be refused), a prompt that answers in the question's language, a French
+  refusal, no SEC manifest required by `/ready`, and `/agent` (SEC tools) answers 404.
+  The SEC path is unchanged, prompt and query prefix included (tests check both).
+
+Embedder and threshold, chosen on `eval/suites/fr-interieur.jsonl`: 28 citizen questions,
+each answered by one sheet, and 14 to refuse, 4 of them close to the Interior's remit but
+absent from the corpus (student residence permit, naturalisation, parking fine, registering
+a used car).
+
+| Retrieval only | recall@5 | MRR | highest off-corpus score | lowest answerable score |
+|---|---|---|---|---|
+| paraphrase-multilingual-MiniLM-L12-v2 (0.22 GB) | 0.964 | 0.905 | 0.606 (naturalisation) | 0.614 |
+| paraphrase-multilingual-mpnet-base-v2 (1 GB) | 0.964 | 0.849 | **0.716** (naturalisation) | 0.644 |
+
+MiniLM is the one whose scores separate the two kinds of question; with mpnet no
+threshold can. At `FINRAG_MIN_SCORE=0.61`: false accepts 0, over-refusals 0, and top 3
+passages keep recall@5's 0.964 (every gold sheet is already in the top 3) with half the
+prompt. **Caveat:** the threshold is tuned on this suite and the margin is 0.008; it is not
+a held-out result. The one retrieval miss is `cni-retrouvee` ("I reported my ID card
+stolen, then found it"): the renewal-after-theft sheets outrank the sheet that answers it.
+
+Full eval with the LLM (same suite, MiniLM, 0.61, top 3; llama3.2:3b @a80c4f17acd5 on an
+RTX 3060 Laptop GPU, mean 8.9 s per answer):
+
+| | answered | refused by the model | refused by the number check | refused at evidence |
+|---|---|---|---|---|
+| 28 answerable | **23** | 4 | 1 | 0 |
+| 14 unanswerable | 0 | 0 | 0 | **14** |
+
+No wrong answer got through; 5 answerable questions were refused (over-refusal 0.179), 4
+of them by the 3B model with the answer in its excerpt (the "found my ID card" sheet says
+outright it can no longer be used). qwen3:4b, the other pinned model, did not fit: with
+reasoning on and up to 8 192 tokens it ran 10 % on CPU on a 6 GB GPU and timed out at
+300 s. Next: a second, held-out suite, and the 4B or 24B model on a GPU that holds it.
+
+**Image security** (Trivy, HIGH and CRITICAL): 102 findings on Debian 12
+(`python:3.12-slim-bookworm`), 47 on Debian 13 (`-trixie` + `apt-get upgrade`), none
+critical, none in the Python dependencies, and none of the 47 has a fix yet. CI now fails
+on any HIGH or CRITICAL finding that has a fix. Next: a distroless runtime image.
 
 ## Three models (2026-11-09)
 

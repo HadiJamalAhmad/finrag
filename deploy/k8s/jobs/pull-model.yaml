@@ -1,0 +1,36 @@
+# Load the configured model (FINRAG_MODEL) into Ollama, and fail if the weights it ends
+# up with are not the pinned digest (`finrag pull-model`, src/finrag/models.py).
+# Air-gapped site: pre-load the volume ollama-models from an approved copy instead;
+# this Job then only verifies (the pull finds the weights already there).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: finrag-pull-model
+  labels:
+    finrag/job: pull-model
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        finrag/client-of-index: "true"
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: pull
+          image: finrag
+          command: [finrag, pull-model]
+          envFrom:
+            - configMapRef: {name: finrag-config}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}

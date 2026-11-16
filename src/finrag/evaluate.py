@@ -66,13 +66,16 @@ def run(suite: list[dict], sc, store, settings, llm=None, with_llm: bool = True,
             # Retrieval-only mode: refusals decided by scope + evidence gate only.
             from finrag import scope
 
-            d = scope.check(case["question"], sc)
+            d = (scope.ScopeDecision(True, "documents mode", frozenset(), frozenset())
+                 if settings.domain == "documents" else scope.check(case["question"], sc))
             if not d.in_scope:
                 refused, stage = True, "scope"
             else:
                 hits = store.search(case["question"], settings.top_k, d.tickers, d.years)
                 refused = not hits or hits[0][0] < settings.min_score
                 stage = "evidence" if refused else "answered"
+                # The number the evidence gate compares: what calibrating min_score needs.
+                extra = {"best_score": round(hits[0][0], 4) if hits else None}
         refusal_rows.append((case["answerable"], refused))
         cases.append({"id": case["id"], "answerable": case["answerable"], "refused": refused,
                       "stage": stage, **extra})

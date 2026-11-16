@@ -20,6 +20,7 @@ from dataclasses import asdict, replace
 from datetime import date
 from functools import lru_cache
 
+import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
@@ -40,6 +41,25 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="finrag", version="0.1.0", lifespan=lifespan)
 
+# Probes carry no key: Kubernetes (deploy/k8s) calls them on every pod, every few seconds.
+OPEN_PATHS = frozenset({"/health", "/ready"})
+
+
+@app.middleware("http")
+async def require_api_key(request: Request, call_next):
+    """x-api-key on every route but the probes, when FINRAG_API_KEY is set.
+
+    On Modal the deployment wraps the app with the same check (deploy/modal_app.py);
+    anywhere else (a container, Kubernetes) this is the check. Unset: open, for local
+    development only. Read per request, like FINRAG_INGEST_KEY.
+    """
+    expected = os.environ.get("FINRAG_API_KEY", "")
+    if expected and request.url.path not in OPEN_PATHS:
+        given = request.headers.get("x-api-key", "")
+        if not hmac.compare_digest(given.encode(), expected.encode()):
+            return JSONResponse({"detail": "missing or wrong x-api-key"}, status_code=401)
+    return await call_next(request)
+
 
 @app.exception_handler(RuntimeError)
 async def not_configured(request: Request, exc: RuntimeError):
@@ -48,6 +68,16 @@ async def not_configured(request: Request, exc: RuntimeError):
     if isinstance(exc, ProviderNotConfigured):  # a hosted model without its key
         return JSONResponse({"detail": str(exc)}, status_code=503)
     raise exc
+
+
+@app.exception_handler(httpx.TimeoutException)
+async def model_timeout(request: Request, exc: httpx.TimeoutException):
+    """The model server did not answer in time (answer.generate waits 300 s). A gateway
+    timeout, not an "Internal Server Error": the API is fine, the model is too slow (seen
+    with a CPU-only Ollama on a laptop, 2026-11-16). Not a refusal either: nobody decided
+    that the documents lack the answer."""
+    return JSONResponse({"detail": "the model did not answer in time; retry, or run it "
+                         "on faster hardware"}, status_code=504)
 
 
 GROUP = r"^[a-z0-9_-]{1,32}$"
@@ -117,7 +147,31 @@ def identify(authorization: str = Header(default="")):
 
 @app.get("/health")
 def health() -> dict:
+    """Liveness: the process answers. Never touches a dependency, so a slow Qdrant does
+    not make Kubernetes restart healthy API pods."""
     return {"status": "ok"}
+
+
+@app.get("/ready")
+def ready() -> JSONResponse:
+    """Readiness: this pod can answer questions now. The index is reachable and holds
+    chunks, and the corpus manifest (which companies are in scope) is present. Until
+    then Kubernetes sends it no traffic, so no one is answered from an empty index."""
+    from finrag.store import Store
+
+    s = get_settings()
+    try:
+        chunks = Store(s).count()
+    except Exception as exc:  # unreachable server, refused connection, timeout
+        return JSONResponse({"ready": False, "reason": f"index unreachable: "
+                             f"{type(exc).__name__}"}, status_code=503)
+    if not chunks:
+        return JSONResponse({"ready": False, "reason": "index is empty: run the ingestion"},
+                            status_code=503)
+    if s.domain == "sec" and not s.manifest_path.exists():  # documents mode has no manifest
+        return JSONResponse({"ready": False, "reason": "corpus manifest missing"},
+                            status_code=503)
+    return JSONResponse({"ready": True, "chunks": chunks})
 
 
 @app.get("/models")
@@ -162,6 +216,8 @@ def agent_query(q: Query, who=Depends(identify)) -> dict:
     """Answer with tools. The response includes the audit log of every tool call."""
     from finrag import agent
 
+    if get_settings().domain != "sec":  # its tools read SEC company facts
+        raise HTTPException(404, "agent mode is only available for SEC filings")
     s, sc, store = _settings_for(q)
     # A fresh guard per question; its search reads only what this user may read.
     guard, model = agent.from_settings(s, store, sc, groups=_groups(who))

@@ -1,0 +1,16 @@
+# The documents: raw/*.html, manifest.json (which companies are in scope),
+# company_tickers.json and facts/. Written once by ../up.sh, then mounted read-only by
+# the API (scope, agent facts) and the ingestion Job (text to index).
+#
+# ReadWriteOnce is enough on one node (kind). On a multi-node cluster the API replicas
+# land on several nodes: use a ReadWriteMany class (NFS, CephFS) or bake the corpus
+# metadata into a versioned image.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: finrag-corpus
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi

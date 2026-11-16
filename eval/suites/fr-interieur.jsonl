@@ -1,0 +1,42 @@
+{"id": "passeport-gratuit", "question": "Dans quels cas un passeport est-il délivré gratuitement ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1709"}}
+{"id": "deux-passeports", "question": "Est-il possible de détenir deux passeports en même temps ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F21517"}}
+{"id": "passeport-abime", "question": "Mon passeport est abîmé, comment le faire remplacer ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F14932"}}
+{"id": "cni-retrouvee", "question": "J'ai déclaré ma carte d'identité volée puis je l'ai retrouvée : puis-je encore l'utiliser ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F18704"}}
+{"id": "photo-normes", "question": "Quelles sont les règles pour la photo d'un passeport ou d'une carte d'identité ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F10619"}}
+{"id": "recours-refus", "question": "Ma demande de carte d'identité a été refusée, quels recours ai-je ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F12567"}}
+{"id": "procuration", "question": "Comment donner procuration à quelqu'un pour voter à ma place ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1604"}}
+{"id": "carte-electorale-infos", "question": "Quelles informations figurent sur la carte électorale ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1962"}}
+{"id": "inscription-18-ans", "question": "Suis-je inscrit automatiquement sur les listes électorales à 18 ans ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1961"}}
+{"id": "citoyen-europeen", "question": "Un citoyen européen qui habite en France peut-il voter aux élections municipales ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1937"}}
+{"id": "permis-b-remorque", "question": "Avec le permis B, quel poids de remorque puis-je tracter ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F2827"}}
+{"id": "bsr-age", "question": "À partir de quel âge peut-on passer le BSR pour conduire un scooter ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F2890"}}
+{"id": "permis-de", "question": "Quelles sont les conditions pour passer le permis DE ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F2848"}}
+{"id": "w-garage", "question": "À quoi sert un certificat W garage ?", "answerable": true, "gold": {"url": "https://entreprendre.service-public.gouv.fr/vosdroits/F22637"}}
+{"id": "tracteur", "question": "Comment immatriculer un tracteur agricole ?", "answerable": true, "gold": {"url": "https://entreprendre.service-public.gouv.fr/vosdroits/F10522"}}
+{"id": "cameras", "question": "Qui a le droit d'installer une caméra de surveillance sur la voie publique ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F2517"}}
+{"id": "sortie-territoire", "question": "Comment empêcher l'autre parent de partir à l'étranger avec notre enfant ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1774"}}
+{"id": "nom-epoux", "question": "Puis-je utiliser le nom de famille de mon mari dans la vie courante ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F868"}}
+{"id": "nom-usage-enfant", "question": "Peut-on donner à un enfant mineur le nom de ses deux parents comme nom d'usage ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F36441"}}
+{"id": "arup", "question": "Comment une association peut-elle être reconnue d'utilité publique ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1131"}}
+{"id": "grand-voyageur", "question": "Qu'est-ce qu'un passeport grand voyageur et comment l'obtenir ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F31413"}}
+{"id": "passeport-urgence", "question": "J'ai besoin d'un passeport très rapidement pour un voyage urgent, est-ce possible ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1373"}}
+{"id": "demenagement-vote", "question": "Je déménage dans une autre commune, comment changer de liste électorale ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1372"}}
+{"id": "conseillers-etranger", "question": "Comment sont élus les conseillers des Français de l'étranger ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F16904"}}
+{"id": "regionales", "question": "Tous les combien d'années ont lieu les élections régionales ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1958"}}
+{"id": "justificatif-domicile", "question": "Quel justificatif de domicile fournir pour demander une carte d'identité ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F14807"}}
+{"id": "vol-tous-papiers", "question": "On m'a volé tous mes papiers d'identité en même temps, que dois-je faire ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F10774"}}
+{"id": "cni-premiere-majeur", "question": "Je suis majeur et je n'ai jamais eu de carte d'identité : comment faire ma première demande ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1341"}}
+{"id": "impots", "question": "Comment déclarer mes revenus en ligne ?", "answerable": false, "why": "impôts: not in the corpus"}
+{"id": "ars", "question": "Quel est le montant de l'allocation de rentrée scolaire ?", "answerable": false, "why": "family benefits: not in the corpus"}
+{"id": "retraite", "question": "À quel âge puis-je partir à la retraite ?", "answerable": false, "why": "pensions: not in the corpus"}
+{"id": "chomage", "question": "Comment m'inscrire à France Travail après un licenciement ?", "answerable": false, "why": "employment: not in the corpus"}
+{"id": "casier", "question": "Comment obtenir un extrait de casier judiciaire ?", "answerable": false, "why": "justice: not in the corpus"}
+{"id": "permis-construire", "question": "Combien de temps faut-il pour obtenir un permis de construire ?", "answerable": false, "why": "urban planning: not in the corpus"}
+{"id": "amende", "question": "Comment contester une amende de stationnement ?", "answerable": false, "why": "close to the Interior's remit, but no sheet in the corpus"}
+{"id": "titre-sejour", "question": "Comment obtenir un titre de séjour étudiant ?", "answerable": false, "why": "close to the Interior's remit, but no sheet in the corpus"}
+{"id": "naturalisation", "question": "Comment demander la naturalisation française ?", "answerable": false, "why": "close to the Interior's remit, but no sheet in the corpus"}
+{"id": "carte-grise-occasion", "question": "Comment refaire la carte grise après l'achat d'une voiture d'occasion ?", "answerable": false, "why": "close: vehicles are covered only for W garage and tractors"}
+{"id": "conge-maternite", "question": "Quelle est la durée du congé maternité ?", "answerable": false, "why": "labour law: not in the corpus"}
+{"id": "logement-social", "question": "Comment faire une demande de logement social ?", "answerable": false, "why": "housing: not in the corpus"}
+{"id": "permis-bateau", "question": "Combien coûte le permis bateau ?", "answerable": false, "why": "not in the corpus"}
+{"id": "capitale", "question": "Quelle est la capitale de l'Australie ?", "answerable": false, "why": "off topic"}

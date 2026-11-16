@@ -1,0 +1,81 @@
+# The LLM server, inside the cluster: no question or passage leaves it.
+# The weights live on a volume, loaded once by the Job ../jobs/pull-model.yaml, which
+# checks their digest against the pin (src/finrag/models.py, deploy/models.lock).
+# On a GPU node add `nvidia.com/gpu: 1` to the limits and a matching nodeSelector.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+spec:
+  replicas: 1
+  # One volume, one writer: stop the old pod before the new one mounts the weights.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ollama
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:0.12.6
+          ports:
+            - name: http
+              containerPort: 11434
+          env:
+            - name: OLLAMA_MODELS
+              value: /models
+            # Keep the model in memory between questions (the Modal setting too).
+            - name: OLLAMA_KEEP_ALIVE
+              value: "-1"
+            - name: OLLAMA_NUM_PARALLEL
+              value: "1"
+          volumeMounts:
+            - name: models
+              mountPath: /models
+          readinessProbe:
+            httpGet: {path: /api/version, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /api/version, port: http}
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            # llama3.2:3b at 4-bit with num_ctx 4096: about 3 GB resident.
+            requests: {cpu: 500m, memory: 3Gi}
+            limits: {memory: 5Gi}
+          # The official image runs as root (it writes under $HOME); the namespace's
+          # baseline level allows it, without privilege escalation or capabilities.
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+            seccompProfile: {type: RuntimeDefault}
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: ollama-models
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+spec:
+  selector:
+    app.kubernetes.io/name: ollama
+  ports:
+    - name: http
+      port: 11434
+      targetPort: http
