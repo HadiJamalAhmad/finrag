@@ -243,3 +243,19 @@ def test_the_embedding_batch_size_reaches_fastembed(monkeypatch):
     store.embed(["a", "b"], "m")
     store.embed(["a", "b"], "m", 16)
     assert calls == [{}, {"batch_size": 16}]
+
+
+# ---------------------------------------------------------------- slow model
+def test_a_model_timeout_is_a_504_not_an_internal_error(monkeypatch):
+    """Seen on a CPU-only cluster: the model took over 300 s and the API answered 500."""
+    import httpx
+
+    def slow(*a, **kw):
+        raise httpx.ReadTimeout("timed out")
+
+    monkeypatch.delenv("FINRAG_API_KEY", raising=False)
+    monkeypatch.setattr(api, "_settings_for", lambda q: (None, None, None))
+    monkeypatch.setattr(api, "answer", slow)
+    r = TestClient(api.app, raise_server_exceptions=False).post(
+        "/query", json={"question": "anything at all"})
+    assert r.status_code == 504 and "did not answer in time" in r.json()["detail"]

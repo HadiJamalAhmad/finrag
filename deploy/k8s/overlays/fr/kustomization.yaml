@@ -1,0 +1,36 @@
+# French public-administration documents instead of SEC filings: the service-public.fr
+# sheets of the ministry of the Interior (finrag fetch-docs), documents mode.
+#
+# Embedder and threshold chosen on eval/suites/fr-interieur.jsonl (README, "French
+# documents"): MiniLM separates the off-corpus questions, mpnet does not; 0.61 sits
+# between the highest off-corpus score (0.606) and the lowest answerable one (0.614).
+# Tuned on that suite, so NOT held-out. Top 3 passages: the same recall as top 5 there,
+# and half the prompt for a CPU-only LLM.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+images:
+  - name: finrag
+    newName: finrag
+    newTag: local
+patches:
+  - target:
+      kind: ConfigMap
+      name: finrag-config
+    patch: |-
+      - op: add
+        path: /data/FINRAG_DOMAIN
+        value: documents
+      - op: add
+        path: /data/FINRAG_EMBED_MODEL
+        value: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+      - op: add
+        path: /data/FINRAG_COLLECTION
+        value: docs_fr
+      - op: add
+        path: /data/FINRAG_MIN_SCORE
+        value: "0.61"
+      - op: add
+        path: /data/FINRAG_TOP_K
+        value: "3"

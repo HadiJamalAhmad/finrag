@@ -18,6 +18,12 @@ from finrag.config import Settings
 QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 
 
+def query_prefix(model: str) -> str:
+    """The instruction a model expects before a query: bge's English one for bge-*-en
+    models, nothing for the multilingual paraphrase models (trained without one)."""
+    return QUERY_PREFIX if model.startswith("BAAI/bge-") and "-en" in model else ""
+
+
 @lru_cache(maxsize=2)
 def _embedder(model: str):
     from fastembed import TextEmbedding  # heavy import: only when actually embedding
@@ -147,7 +153,7 @@ class Store:
             # 2024 may be answered by the FY2025 or FY2026 annual report.
             span = sorted({y + d for y in years for d in (0, 1, 2)})
             must.append(FieldCondition(key="fiscal_year", match=MatchAny(any=span)))
-        vector = embed([QUERY_PREFIX + query], self.s.embed_model)[0]
+        vector = embed([query_prefix(self.s.embed_model) + query], self.s.embed_model)[0]
         hits = self.client.query_points(
             self.s.collection, query=vector, limit=k, query_filter=Filter(must=must),
         ).points

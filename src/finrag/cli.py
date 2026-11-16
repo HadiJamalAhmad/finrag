@@ -45,11 +45,47 @@ def cmd_fetch(args, s) -> None:
         print(f"{f.ticker:5} {f.form:5} period {f.period} filed {f.filed}")
 
 
+def cmd_fetch_docs(args, s) -> None:
+    """service-public.fr open dataset -> the Interior ministry's sheets in data/docs."""
+    import httpx
+
+    from finrag import documents
+
+    zip_path = s.data_dir / "sp" / "vosdroits.zip"
+    if not zip_path.exists() or args.refresh:
+        zip_path.parent.mkdir(parents=True, exist_ok=True)
+        with httpx.stream("GET", documents.DATASET_URL, timeout=300.0,
+                          follow_redirects=True) as r:
+            r.raise_for_status()
+            with zip_path.open("wb") as f:
+                for part in r.iter_bytes():
+                    f.write(part)
+    docs = documents.interior_sheets(zip_path)
+    documents.save(docs, s.docs_dir)
+    print(f"{len(docs)} sheets -> {s.docs_dir}  ({documents.LICENCE})")
+
+
+def _ingest_documents(s) -> None:
+    from finrag import documents
+    from finrag.store import Store, embed
+
+    docs = documents.load(s.docs_dir)
+    if not docs:
+        sys.exit(f"No documents in {s.docs_dir}: run `finrag fetch-docs` first.")
+    chunks = documents.to_chunks(docs)
+    for d in docs:
+        print(f"{d.id}: {d.title} ({len(d.sections)} sections)")
+    n = Store(s).rebuild(chunks, len(embed(["dimension probe"], s.embed_model)[0]))
+    print(f"indexed {n} chunks from {len(docs)} documents into {s.collection}")
+
+
 def cmd_ingest(args, s) -> None:
     from finrag import edgar, parse
     from finrag.chunk import chunk_filing
     from finrag.store import Store, embed
 
+    if s.domain == "documents":
+        return _ingest_documents(s)
     filings = edgar.load_manifest(s.manifest_path)
     if not filings:
         sys.exit("No filings: run `finrag fetch` first.")
@@ -154,7 +190,11 @@ def main() -> None:
     f.add_argument("tickers", nargs="+")
     f.add_argument("--forms", nargs="+", default=["10-K"])
     f.add_argument("--limit", type=int, default=1, help="filings per form and company")
-    sub.add_parser("ingest", help="parse, chunk, embed and index the downloaded filings")
+    sub.add_parser("ingest", help="parse, chunk, embed and index the downloaded filings "
+                                  "(FINRAG_DOMAIN=documents: the documents in data/docs)")
+    fd = sub.add_parser("fetch-docs",
+                        help="service-public.fr sheets of the Interior ministry -> data/docs")
+    fd.add_argument("--refresh", action="store_true", help="download the dataset again")
     a = sub.add_parser("ask", parents=[common])
     a.add_argument("question")
     g = sub.add_parser("agent", parents=[common],
@@ -169,7 +209,8 @@ def main() -> None:
                    help="load the model into the Ollama server at OLLAMA_URL, digest checked")
     args = p.parse_args()
     {"fetch": cmd_fetch, "ingest": cmd_ingest, "ask": cmd_ask, "agent": cmd_agent,
-     "eval": cmd_eval, "pull-model": cmd_pull_model}[args.cmd](args, _settings(args))
+     "eval": cmd_eval, "pull-model": cmd_pull_model,
+     "fetch-docs": cmd_fetch_docs}[args.cmd](args, _settings(args))
 
 
 def _settings(args):

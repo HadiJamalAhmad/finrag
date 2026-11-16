@@ -4,6 +4,7 @@
 #
 #   deploy/k8s/up.sh                 # corpus: data/ if it holds a manifest, else the sample
 #   CORPUS=sample deploy/k8s/up.sh   # force the one-filing sample (what CI runs)
+#   CORPUS=fr deploy/k8s/up.sh       # French documents (data/docs, `finrag fetch-docs`), overlay fr
 #   WITH_LLM=0 deploy/k8s/up.sh      # no Ollama (low-memory machine): retrieval and refusals only
 #   CONTEXT=docker-desktop deploy/k8s/up.sh   # Docker Desktop's own Kubernetes instead of kind
 #   deploy/k8s/down.sh               # delete the cluster
@@ -29,7 +30,16 @@ k() { kubectl --context "$CONTEXT" -n "$NS" "$@"; }
 step() { printf '\n== %s\n' "$*"; }
 
 # ------------------------------------------------------------------ corpus to load
-if [ "${CORPUS:-}" = sample ] || { [ -z "${CORPUS:-}" ] && [ ! -f data/manifest.json ]; }; then
+OVERLAY=local
+if [ "${CORPUS:-}" = fr ] || [ "${CORPUS:-}" = fr-sample ]; then
+  OVERLAY=fr
+  # fr: the 45 sheets in data/docs. fr-sample: one sheet, committed (what CI runs).
+  SRC=data/docs; [ "$CORPUS" = fr-sample ] && SRC=deploy/k8s/sample-fr
+  [ -n "$(ls "$SRC"/*.json 2>/dev/null)" ] || { echo "no $SRC: run uv run finrag fetch-docs" >&2; exit 1; }
+  STAGE=$(mktemp -d)
+  mkdir -p "$STAGE/docs" "$STAGE/raw"  # raw/ stays empty: documents mode reads docs/
+  cp "$SRC"/*.json "$SRC/SOURCE.md" "$STAGE/docs/"
+elif [ "${CORPUS:-}" = sample ] || { [ -z "${CORPUS:-}" ] && [ ! -f data/manifest.json ]; }; then
   CORPUS=sample
   STAGE=$(mktemp -d)
   mkdir -p "$STAGE/raw"
@@ -44,7 +54,11 @@ else
   [ -d "$CORPUS/facts" ] && cp -r "$CORPUS/facts" "$STAGE/"
 fi
 trap 'rm -rf "$STAGE"' EXIT
-echo "corpus: $CORPUS ($(ls "$STAGE/raw" | wc -l) filings)"
+if [ "$OVERLAY" = fr ]; then
+  echo "corpus: $CORPUS ($(ls "$STAGE/docs"/*.json | wc -l) service-public.fr sheets), overlay $OVERLAY"
+else
+  echo "corpus: $CORPUS ($(ls "$STAGE/raw" | wc -l) filings), overlay $OVERLAY"
+fi
 
 # ------------------------------------------------------------------ cluster and image
 step "cluster $CONTEXT"
@@ -78,8 +92,8 @@ else
 fi
 
 # ------------------------------------------------------------------ services
-step "services (kubectl apply -k deploy/k8s/overlays/local)"
-kubectl --context "$CONTEXT" apply -k deploy/k8s/overlays/local
+step "services (kubectl apply -k deploy/k8s/overlays/$OVERLAY)"
+kubectl --context "$CONTEXT" apply -k deploy/k8s/overlays/$OVERLAY
 if ! k get secret finrag-secrets >/dev/null 2>&1; then
   # A random key, sent on stdin: never in a file, the repository, or a command line
   # that `ps` could show.

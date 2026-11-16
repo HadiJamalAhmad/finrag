@@ -14,12 +14,21 @@ CONTEXT=${CONTEXT:-kind-$CLUSTER}
 k() { kubectl --context "$CONTEXT" -n finrag "$@"; }
 PY=$(command -v python3 || command -v python)
 
+OUT_Q="What was Tesla's revenue in fiscal 2025?"  # TSLA is a SEC company outside the corpus
+OUT_STAGE=scope
+OUT_WHAT="a company outside the corpus is refused at the scope stage"
 if [ "$CORPUS" = sample ]; then
   IN_Q="Who supplies Acme's precision gears?"
+elif [ "$CORPUS" = fr ] || [ "$CORPUS" = fr-sample ]; then
+  # Documents mode has no company scope: an off-topic question meets the evidence gate.
+  IN_Q="Dans quels cas un passeport est-il délivré gratuitement ?"
+  [ "$CORPUS" = fr-sample ] &&     IN_Q="J'ai retrouvé mon passeport après avoir déclaré son vol, puis-je encore l'utiliser ?"
+  OUT_Q="Quelle est la capitale de l'Australie ?"
+  OUT_STAGE=evidence
+  OUT_WHAT="an off-topic question is refused at the evidence stage, in French"
 else
   IN_Q="What supply chain risks does Apple describe?"
 fi
-OUT_Q="What was Tesla's revenue in fiscal 2025?"  # TSLA is a SEC company outside the corpus
 
 KEY=$(k get secret finrag-secrets -o jsonpath='{.data.FINRAG_API_KEY}' | base64 -d)
 k port-forward svc/finrag-api "$PORT:80" >/dev/null 2>&1 &
@@ -41,8 +50,11 @@ try: print(json.load(sys.stdin).get('$1', ''))
 except ValueError: print('')"
 }
 ask() {
-  curl -s --max-time 900 -H "x-api-key: $KEY" -H 'content-type: application/json' \
-    -d "{\"question\": \"$1\"}" "$URL/query"
+  # JSON built by Python (accents escaped as é) and sent on stdin: curl on Windows
+  # re-encodes accented arguments, and "délivré" reached the API as invalid UTF-8.
+  "$PY" -c 'import json, sys; print(json.dumps({"question": sys.argv[1]}))' "$1" |
+    curl -s --max-time 900 -H "x-api-key: $KEY" -H 'content-type: application/json' \
+      --data-binary @- "$URL/query"
 }
 
 check "liveness /health answers without a key" \
@@ -58,8 +70,8 @@ check "right x-api-key: 200" \
   test "$(status -H "x-api-key: $KEY" "$URL/models")" = 200
 
 OUT=$(ask "$OUT_Q")
-check "a company outside the corpus is refused at the scope stage" \
-  test "$(echo "$OUT" | field stage)" = scope
+echo "      $OUT_Q -> $(echo "$OUT" | field answer)"
+check "$OUT_WHAT" test "$(echo "$OUT" | field stage)" = "$OUT_STAGE"
 
 ENDPOINTS=$(k get endpoints finrag-api -o jsonpath='{range .subsets[*].addresses[*]}{.ip} {end}')
 check "two API replicas behind the Service ($ENDPOINTS)" \

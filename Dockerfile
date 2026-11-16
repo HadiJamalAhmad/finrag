@@ -10,7 +10,7 @@
 
 FROM ghcr.io/astral-sh/uv:0.11.26 AS uv
 
-FROM python:3.12-slim-bookworm AS build
+FROM python:3.12-slim-trixie AS build
 COPY --from=uv /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 WORKDIR /app
@@ -19,14 +19,20 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY src ./src
 RUN uv sync --frozen --no-dev
-# The embedder (bge-small-en-v1.5, ONNX), fetched once here and never at run time.
+# The embedders, fetched once here and never at run time: bge-small-en-v1.5 for the SEC
+# filings, paraphrase-multilingual-MiniLM-L12-v2 for the French documents (overlay fr).
 ENV FASTEMBED_CACHE_PATH=/opt/fastembed
 RUN /app/.venv/bin/python -c \
-    "from fastembed import TextEmbedding; TextEmbedding('BAAI/bge-small-en-v1.5')" \
+    "from fastembed import TextEmbedding; TextEmbedding('BAAI/bge-small-en-v1.5'); \
+TextEmbedding('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')" \
     && chmod -R a+rX /opt/fastembed  # the hub writes some cache files 0600; we run as 10001
 
-FROM python:3.12-slim-bookworm
-RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin finrag
+# Debian 13: 102 HIGH/CRITICAL findings on bookworm (Trivy, 2026-11-16) -> 49 here, none
+# critical, none in the Python dependencies; the upgrade takes the ones Debian has fixed.
+FROM python:3.12-slim-trixie
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin finrag
 WORKDIR /app
 COPY --from=build /app /app
 COPY --from=build /opt/fastembed /opt/fastembed

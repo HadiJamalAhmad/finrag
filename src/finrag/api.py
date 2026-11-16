@@ -20,6 +20,7 @@ from dataclasses import asdict, replace
 from datetime import date
 from functools import lru_cache
 
+import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
@@ -67,6 +68,16 @@ async def not_configured(request: Request, exc: RuntimeError):
     if isinstance(exc, ProviderNotConfigured):  # a hosted model without its key
         return JSONResponse({"detail": str(exc)}, status_code=503)
     raise exc
+
+
+@app.exception_handler(httpx.TimeoutException)
+async def model_timeout(request: Request, exc: httpx.TimeoutException):
+    """The model server did not answer in time (answer.generate waits 300 s). A gateway
+    timeout, not an "Internal Server Error": the API is fine, the model is too slow (seen
+    with a CPU-only Ollama on a laptop, 2026-11-16). Not a refusal either: nobody decided
+    that the documents lack the answer."""
+    return JSONResponse({"detail": "the model did not answer in time; retry, or run it "
+                         "on faster hardware"}, status_code=504)
 
 
 GROUP = r"^[a-z0-9_-]{1,32}$"
@@ -157,7 +168,7 @@ def ready() -> JSONResponse:
     if not chunks:
         return JSONResponse({"ready": False, "reason": "index is empty: run the ingestion"},
                             status_code=503)
-    if not s.manifest_path.exists():
+    if s.domain == "sec" and not s.manifest_path.exists():  # documents mode has no manifest
         return JSONResponse({"ready": False, "reason": "corpus manifest missing"},
                             status_code=503)
     return JSONResponse({"ready": True, "chunks": chunks})
@@ -205,6 +216,8 @@ def agent_query(q: Query, who=Depends(identify)) -> dict:
     """Answer with tools. The response includes the audit log of every tool call."""
     from finrag import agent
 
+    if get_settings().domain != "sec":  # its tools read SEC company facts
+        raise HTTPException(404, "agent mode is only available for SEC filings")
     s, sc, store = _settings_for(q)
     # A fresh guard per question; its search reads only what this user may read.
     guard, model = agent.from_settings(s, store, sc, groups=_groups(who))

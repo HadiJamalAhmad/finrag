@@ -34,6 +34,10 @@ class Settings:
     data_dir: Path = field(
         default_factory=lambda: Path(os.environ.get("FINRAG_DATA", ROOT / "data"))
     )
+    # "sec": SEC 10-K/10-Q filings (scope by company and fiscal year, the eval suites).
+    # "documents": any document corpus under data/docs (here service-public.fr pages):
+    # no company scope, prompt and refusal in the corpus's language.
+    domain: str = os.environ.get("FINRAG_DOMAIN", "sec")
     collection: str = os.environ.get("FINRAG_COLLECTION", "sec_filings")
     # Empty: Qdrant in local mode under data/qdrant (one process). A URL
     # (http://qdrant:6333): a Qdrant server shared by every API replica (Kubernetes).
@@ -84,6 +88,11 @@ class Settings:
     @property
     def raw_dir(self) -> Path:
         return self.data_dir / "raw"
+
+    @property
+    def docs_dir(self) -> Path:
+        """Documents mode: one JSON file per document (finrag.documents.Document)."""
+        return self.data_dir / "docs"
 
     @property
     def manifest_path(self) -> Path:
