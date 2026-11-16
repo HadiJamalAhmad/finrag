@@ -102,7 +102,8 @@ browser ─► Vercel  web/index.html, web/api/{query,agent}.js   (adds x-api-ke
 - **CI/CD** (`.github/workflows/ci.yml`). Every push and PR: ruff, the offline tests,
   `pip-audit` on the locked dependencies and `gitleaks` on the whole history. A push to
   `main` with all of them green deploys the backend to Modal (secrets `MODAL_TOKEN_ID`,
-  `MODAL_TOKEN_SECRET`); Vercel builds `web/` from the same push (Root Directory = web).
+  `MODAL_TOKEN_SECRET`, and the repository variable `MODAL_DEPLOY=on`, off while the
+  account has no credits); Vercel builds `web/` from the same push (Root Directory = web).
 - **The corpus is a Modal Volume** (`finrag-data`), not part of the image: `data/` is
   gitignored, so CI deploys code and models while the index stays what was uploaded.
   After any re-ingest, from the machine that ran it:
