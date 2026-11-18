@@ -10,3 +10,6 @@ __pycache__/
 .vercel
 .env*
 !.env.example
+
+# local benchmark data (528 MB, re-downloadable)
+data-bench/
