@@ -171,6 +171,82 @@ def cmd_eval(args, s) -> None:
     sys.exit(0 if all(g["pass"] for g in report["gates"].values()) else 1)
 
 
+def _extract_all(ids: list[str], s) -> dict:
+    from finrag import documents, extract
+
+    docs = {d.id: d for d in documents.load(s.docs_dir)}
+    if not docs:
+        sys.exit(f"No documents in {s.docs_dir}: run `finrag fetch-docs` first.")
+    missing = [i for i in ids if i not in docs]
+    if missing:
+        sys.exit(f"not in {s.docs_dir}: {', '.join(missing)}")
+    return {i: extract.extract(docs[i], s) for i in (ids or sorted(docs))}
+
+
+def _extract_cached(ids: list[str], s, cache: str | None, pause: float) -> dict:
+    """Like _extract_all, but each finished sheet is saved to `cache`, so an interrupted run
+    resumes where it stopped, and `pause` seconds separate model calls (laptop GPU)."""
+    if not cache and not pause:
+        return _extract_all(ids, s)
+    import time
+
+    from finrag import documents, extract
+
+    docs = {d.id: d for d in documents.load(s.docs_dir)}
+    missing = [i for i in ids if i not in docs]
+    if missing:
+        sys.exit(f"not in {s.docs_dir}: {', '.join(missing)}")
+    folder = Path(cache) if cache else None
+    if folder:
+        folder.mkdir(parents=True, exist_ok=True)
+    results = {}
+    for n, i in enumerate(ids, 1):
+        path = folder / f"{i}.json" if folder else None
+        if path and path.exists():
+            results[i] = extract.from_json(path.read_text(encoding="utf-8"))
+            print(f"[{n}/{len(ids)}] {i}: cached", flush=True)
+            continue
+        if results and pause:
+            time.sleep(pause)
+        results[i] = extract.extract(docs[i], s, pause=pause)
+        if path:
+            path.write_text(extract.to_json(results[i]), encoding="utf-8")
+        print(f"[{n}/{len(ids)}] {i}: done", flush=True)
+    return results
+
+
+def cmd_extract(args, s) -> None:
+    """Sheets -> data/structured/<id>.json, every field with its verified source sentence."""
+    from finrag import extract
+
+    out = s.data_dir / "structured"
+    out.mkdir(parents=True, exist_ok=True)
+    for i, e in _extract_all(args.ids, s).items():
+        (out / f"{i}.json").write_text(extract.to_json(e), encoding="utf-8")
+        kept = {n: f["value"] for n, f in e.fields.items() if n != "couts"}
+        costs = ", ".join(f"{c['montant']} ({c['condition']})" for c in e.fields["couts"])
+        print(f"{i}: {kept} couts: [{costs}] rejected: {len(e.rejected)}")
+    print(f"-> {out}")
+
+
+def cmd_eval_extract(args, s) -> None:
+    from finrag import extract
+
+    gold = [json.loads(ln) for ln in Path(args.suite).read_text(encoding="utf-8").splitlines()
+            if ln.strip()]
+    results = _extract_cached([g["id"] for g in gold], s, args.cache, args.pause)
+    report = extract.score(results, gold) | {
+        "model": s.preset.model_id, "digest": s.preset.digest,
+        "sheets": {i: {"fields": e.fields, "rejected": e.rejected} for i, e in results.items()}}
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
+    for k in ("field_accuracy", "amount_recall", "amount_precision",
+              "unsupported_values_kept", "rejected_by_verification"):
+        print(f"{k}: {report[k]}")
+    print(f"report: {out}")
+
+
 def _print_usage(usage: dict | None) -> None:
     if usage:
         print(f"model {usage['model']}: {usage['prompt_tokens']}+{usage['completion_tokens']} "
@@ -207,10 +283,21 @@ def main() -> None:
     e.add_argument("--retrieval-only", action="store_true", help="skip the LLM (fast)")
     sub.add_parser("pull-model", parents=[common],
                    help="load the model into the Ollama server at OLLAMA_URL, digest checked")
+    x = sub.add_parser("extract", parents=[common],
+                       help="sheets in data/docs -> structured fields, each with its proof")
+    x.add_argument("ids", nargs="*", help="sheet ids (default: all)")
+    xe = sub.add_parser("eval-extract", parents=[common],
+                        help="score the extraction against gold read off the sheets")
+    xe.add_argument("suite")
+    xe.add_argument("--out", default="eval/reports/extraction.json")
+    xe.add_argument("--cache", help="folder keeping each finished sheet: a rerun resumes")
+    xe.add_argument("--pause", type=float, default=0.0,
+                    help="seconds between model calls, to let a laptop GPU cool down")
     args = p.parse_args()
     {"fetch": cmd_fetch, "ingest": cmd_ingest, "ask": cmd_ask, "agent": cmd_agent,
      "eval": cmd_eval, "pull-model": cmd_pull_model,
-     "fetch-docs": cmd_fetch_docs}[args.cmd](args, _settings(args))
+     "fetch-docs": cmd_fetch_docs, "extract": cmd_extract,
+     "eval-extract": cmd_eval_extract}[args.cmd](args, _settings(args))
 
 
 def _settings(args):

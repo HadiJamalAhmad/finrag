@@ -1,0 +1,63 @@
+# Extraction evaluation on GitHub's free runners (CPU only), ON DEMAND only.
+#
+# Why here: the evaluation needs an LLM for ~14 sheets, and a laptop GPU overheats on it.
+# A public repository gets free runner minutes; the job's log and report are public proof.
+#
+# Run: Actions tab > extraction-eval > Run workflow, or
+#   gh workflow run extraction-eval.yml -f pause=0
+# The 14 sheets are frozen in eval/fixtures/fr-extraction/docs (Licence Ouverte 2.0, DILA),
+# so a rerun reads exactly the text the gold was written from.
+name: extraction-eval
+
+on:
+  workflow_dispatch:
+    inputs:
+      pause:
+        description: "Seconds between model calls (0 on a runner)"
+        required: false
+        default: "0"
+
+permissions:
+  contents: read
+
+jobs:
+  extraction-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    services:
+      ollama:
+        image: ollama/ollama:0.12.6   # the image deploy/k8s runs
+        ports: ["11434:11434"]
+    env:
+      OLLAMA_URL: http://localhost:11434
+      FINRAG_MODEL: llama-3b
+      FINRAG_DATA: eval/fixtures/fr-extraction
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - name: Pull the model, digest checked against the pin
+        run: uv run finrag pull-model
+      - name: Evaluate the extraction
+        env:
+          PYTHONUNBUFFERED: "1"
+          PAUSE: ${{ inputs.pause }}
+        run: |
+          uv run finrag eval-extract eval/suites/fr-extraction.jsonl \
+            --cache eval/reports/extraction-cache --pause "$PAUSE" \
+            --out eval/reports/extraction-llama3b-windows.json | tee eval-extract.txt
+      - name: Summary
+        if: always()
+        run: |
+          { echo '## Extraction evaluation (llama3.2:3b, CPU runner)'; echo '```';
+            grep -E "^(field_accuracy|amount_|unsupported|rejected)" eval-extract.txt || true;
+            echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: extraction-report
+          path: |
+            eval/reports/extraction-llama3b-windows.json
+            eval/reports/extraction-cache/
