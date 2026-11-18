@@ -1,0 +1,62 @@
+# Held-out evaluation of the French documents mode, on a free CPU runner, ON DEMAND only.
+#
+# eval/suites/fr-interieur-heldout.jsonl was written from the sheets' text alone, never run
+# before this job, with the settings FROZEN as tuned on fr-interieur.jsonl (MiniLM, threshold
+# 0.61, top 3). Its numbers are the honest ones: no setting was chosen by looking at them.
+# The 45 sheets are frozen in eval/fixtures/fr-interieur/docs (Licence Ouverte 2.0, DILA).
+#
+# Run: Actions tab > heldout-eval > Run workflow, or  gh workflow run heldout-eval.yml
+name: heldout-eval
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  heldout-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    services:
+      ollama:
+        image: ollama/ollama:0.12.6   # the image deploy/k8s runs
+        ports: ["11434:11434"]
+    env:
+      OLLAMA_URL: http://localhost:11434
+      FINRAG_MODEL: llama-3b
+      FINRAG_DATA: eval/fixtures/fr-interieur
+      # Frozen settings, the same as deploy/k8s/overlays/fr:
+      FINRAG_DOMAIN: documents
+      FINRAG_EMBED_MODEL: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+      FINRAG_COLLECTION: docs_fr
+      FINRAG_MIN_SCORE: "0.61"
+      FINRAG_TOP_K: "3"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - name: Index the 45 sheets
+        run: uv run finrag ingest
+      - name: Reproduce the tuning suite (retrieval only)
+        run: uv run finrag eval eval/suites/fr-interieur.jsonl --retrieval-only --out eval/reports/fr-tuning-retrieval.json | tee tuning.txt
+      - name: Held-out suite, retrieval only
+        run: uv run finrag eval eval/suites/fr-interieur-heldout.jsonl --retrieval-only --out eval/reports/fr-heldout-retrieval.json | tee heldout-retrieval.txt
+      - name: Pull the model, digest checked against the pin
+        run: uv run finrag pull-model
+      - name: Held-out suite, full pipeline with the LLM
+        run: uv run finrag eval eval/suites/fr-interieur-heldout.jsonl --out eval/reports/fr-heldout-llama3b.json | tee heldout-full.txt
+      - name: Summary
+        if: always()
+        run: |
+          for f in tuning heldout-retrieval heldout-full; do
+            { echo "## $f"; echo '```'; cat "$f.txt" 2>/dev/null | tail -25; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: heldout-reports
+          path: eval/reports/

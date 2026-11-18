@@ -1,0 +1,27 @@
+{"id": "h-cni-mineur-perte", "question": "Mon fils de 12 ans a perdu sa carte d'identité, comment la refaire ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1153"}}
+{"id": "h-permis-moto-125", "question": "Quel permis faut-il pour conduire une moto de 125 cm³ ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F12096"}}
+{"id": "h-cni-mineur-premiere", "question": "Comment faire une première carte d'identité pour ma fille de 8 ans ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1342"}}
+{"id": "h-nom-usage-parent", "question": "Puis-je utiliser le nom de famille de ma mère, qui ne m'a pas été transmis, dans la vie courante ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1343"}}
+{"id": "h-cni-majeur-perte", "question": "J'ai perdu ma carte d'identité et je suis majeur : comment la remplacer ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1344"}}
+{"id": "h-liste-premiere", "question": "Comment m'inscrire sur les listes électorales pour la première fois ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1367"}}
+{"id": "h-passeport-majeur-premier", "question": "Je n'ai jamais eu de passeport : comment en obtenir un pour la première fois ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F14929"}}
+{"id": "h-passeport-mineur-premier", "question": "Comment faire le premier passeport de mon enfant ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F14930"}}
+{"id": "h-cni-majeur-vol", "question": "On m'a volé ma carte d'identité, comment en obtenir une nouvelle ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1759"}}
+{"id": "h-cni-mineur-vol", "question": "La carte d'identité de mon enfant a été volée, que dois-je faire ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1794"}}
+{"id": "h-presidentielle-dates", "question": "Quand aura lieu le second tour de la prochaine élection présidentielle ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F1940"}}
+{"id": "h-cni-majeur-renouv", "question": "Ma carte d'identité expire bientôt : comment la renouveler ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F21089"}}
+{"id": "h-cni-mineur-renouv", "question": "Comment renouveler la carte d'identité de mon fils mineur, qui arrive à expiration ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F21090"}}
+{"id": "h-passeport-mineur-renouv", "question": "Le passeport de ma fille de 15 ans est périmé, comment le renouveler ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F21092"}}
+{"id": "h-passeport-mineur-vol", "question": "Le passeport de mon enfant a été volé, comment le refaire ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F21245"}}
+{"id": "h-passeport-majeur-vol", "question": "On m'a volé mon passeport, comment en refaire un ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F21247"}}
+{"id": "h-domicile-mineur", "question": "Quel justificatif de domicile fournir pour la carte d'identité de mon enfant ?", "answerable": true, "gold": {"url": "https://www.service-public.gouv.fr/particuliers/vosdroits/F32675"}}
+{"id": "h-refus-carte-vitale", "question": "Comment obtenir une carte Vitale ?", "answerable": false, "why": "assurance maladie, hors du corpus"}
+{"id": "h-refus-naissance", "question": "Comment déclarer la naissance d'un enfant ?", "answerable": false, "why": "état civil, aucune fiche du corpus"}
+{"id": "h-refus-rsa", "question": "Comment faire une demande de RSA ?", "answerable": false, "why": "prestation sociale, hors du corpus"}
+{"id": "h-refus-acte-mariage", "question": "Comment obtenir une copie d'acte de mariage ?", "answerable": false, "why": "état civil, aucune fiche du corpus"}
+{"id": "h-refus-ceam", "question": "Comment demander la carte européenne d'assurance maladie avant un voyage ?", "answerable": false, "why": "proche du thème du voyage, mais hors du corpus"}
+{"id": "h-refus-carte-grise-adresse", "question": "Comment changer d'adresse sur ma carte grise après un déménagement ?", "answerable": false, "why": "piège : véhicules et déménagement sont dans le corpus, la carte grise non"}
+{"id": "h-refus-permis-perdu", "question": "J'ai perdu mon permis de conduire, comment le refaire ?", "answerable": false, "why": "piège : le corpus parle des catégories de permis, pas de leur remplacement"}
+{"id": "h-refus-code-route", "question": "Comment s'inscrire à l'examen du code de la route ?", "answerable": false, "why": "piège : proche des fiches permis, absent du corpus"}
+{"id": "h-refus-permis-chasser", "question": "Comment obtenir un permis de chasser ?", "answerable": false, "why": "le mot permis est trompeur, hors du corpus"}
+{"id": "h-refus-meteo", "question": "Quel temps fera-t-il demain à Paris ?", "answerable": false, "why": "hors sujet"}

@@ -5,7 +5,7 @@
 #
 # Run: Actions tab > extraction-eval > Run workflow, or
 #   gh workflow run extraction-eval.yml -f pause=0
-# The 14 sheets are frozen in eval/fixtures/fr-extraction/docs (Licence Ouverte 2.0, DILA),
+# The 45 sheets (the 14 scored ones among them) are frozen in eval/fixtures/fr-interieur/docs (Licence Ouverte 2.0, DILA),
 # so a rerun reads exactly the text the gold was written from.
 name: extraction-eval
 
@@ -31,7 +31,7 @@ jobs:
     env:
       OLLAMA_URL: http://localhost:11434
       FINRAG_MODEL: llama-3b
-      FINRAG_DATA: eval/fixtures/fr-extraction
+      FINRAG_DATA: eval/fixtures/fr-interieur
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
