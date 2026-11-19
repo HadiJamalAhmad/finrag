@@ -13,3 +13,7 @@ __pycache__/
 
 # local benchmark data (528 MB, re-downloadable)
 data-bench/
+deploy/static-space/site/
+deploy/static-space/browser-check-*.json
+deploy/static-space/node_modules/
+deploy/static-space/package*.json

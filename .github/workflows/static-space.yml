@@ -1,0 +1,69 @@
+# Build the static Hugging Face Space (free tier): passages and vectors by finrag's own
+# embed(), then a check that the browser model (transformers.js) gives the same answer/refuse
+# decisions on the 69 evaluation questions. The lightest precision that agrees is kept.
+# ON DEMAND only. Output: artifact "static-space", ready for `hf upload ... --repo-type space`.
+name: static-space
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FINRAG_DATA: eval/fixtures/fr-interieur
+      FINRAG_DOMAIN: documents
+      FINRAG_EMBED_MODEL: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+      FINRAG_MIN_SCORE: "0.61"
+      FINRAG_TOP_K: "3"
+      SITE: deploy/static-space/site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - name: Passages, vectors and reference scores (finrag's embed)
+        run: uv run python deploy/static-space/build_index.py "$SITE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Browser model, three precisions
+        working-directory: deploy/static-space
+        run: |
+          npm init -y > /dev/null && npm install --silent @huggingface/transformers@4.3.2
+          for d in q8 fp16 fp32; do node check_browser.mjs site "$d" || true; done
+      - name: Keep the lightest precision that agrees on every decision
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, sys
+          site = pathlib.Path(os.environ["SITE"])
+          for d in ["q8", "fp16", "fp32"]:
+              p = site.parent / f"browser-check-{d}.json"
+              if not p.exists():
+                  continue
+              r = json.loads(p.read_text())
+              print(d, "max diff", r["max_score_diff"], "mismatches", len(r["decision_mismatches"]))
+              if not r["decision_mismatches"]:
+                  (site / "config.json").write_text(json.dumps({
+                      "model": "Xenova/paraphrase-multilingual-MiniLM-L12-v2",
+                      "revision": "2c4055b12046f11709e9df2c122e59ffbdc2f900",
+                      "dtype": d, "checked_questions": r["questions"],
+                      "max_score_diff": r["max_score_diff"]}, indent=1))
+                  print("kept", d)
+                  break
+          else:
+              sys.exit("no precision agrees with finrag on every decision: nothing to publish")
+          PY
+          cp deploy/static-space/index.html deploy/static-space/README.md "$SITE/"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: static-space
+          path: |
+            deploy/static-space/site/
+            deploy/static-space/browser-check-*.json

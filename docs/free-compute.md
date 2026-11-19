@@ -12,7 +12,7 @@ digest, and writes a report to `eval/reports/` that is then committed or attache
 | Google Colab | A T4 when available, sessions end when idle | Same notebook, quick checks | **Ready** (needs a Google account) |
 | Modal | Monthly free credits | Live API behind finrag-ten.vercel.app, GPU bake-off | Waiting for credits (repository variable `MODAL_DEPLOY=on`) |
 | Oracle Cloud Always Free | ARM VM, 4 OCPUs, 24 GB RAM, no time limit | A permanent demo: API, Qdrant, llama3.2:3b on CPU | To set up (needs an account) |
-| Hugging Face Spaces | Free CPU Space (2 vCPU, 16 GB) | A public demo of retrieval and refusals without the LLM | To set up (needs an account) |
+| Hugging Face Spaces | Static Spaces only (Docker and Gradio Spaces on CPU now need PRO) | A public demo: search and refusals run in the browser | **Ready**: `static-space` workflow |
 
 Quotas change: check the provider's page before relying on a number above.
 
@@ -54,8 +54,17 @@ backend and the Vercel page talks to it again. Set it back to off when credits r
    same images (API, Qdrant, Ollama pinned to `ollama/ollama:0.12.6`).
 4. `finrag pull-model` (digest checked) and `finrag ingest` against the frozen corpus.
 
-## Hugging Face Spaces (to set up)
+## Hugging Face Spaces (static, free)
 
-A Docker Space running the API with `WITH_LLM=0` behaviour: retrieval, scope check and refusals
-answer instantly on a free CPU; questions that need the model are refused with the stage named.
-Useful as a link that always works, while the full answers stay on Modal or Oracle.
+Docker and Gradio Spaces on the free CPU now need a PRO subscription; static Spaces stay free.
+So the demo runs in the visitor's browser: the `static-space` workflow computes the 598
+passages' vectors with finrag's own `embed()`, then checks that the browser model
+(transformers.js, `Xenova/paraphrase-multilingual-MiniLM-L12-v2` at a pinned revision) gives the
+same answer/refuse decision as finrag on all 69 evaluation questions, at q8, fp16 and fp32, and
+keeps the lightest precision that agrees. No agreement, nothing to publish.
+
+```bash
+gh workflow run static-space.yml && gh run watch
+gh run download --name static-space -D /tmp/space
+hf upload HadiJamalAhmad/finrag /tmp/space/site . --repo-type space
+```

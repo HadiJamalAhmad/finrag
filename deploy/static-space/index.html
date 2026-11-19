@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>finrag : IA documentaire sourcée</title>
+<style>
+body{font-family:system-ui,Segoe UI,Arial;max-width:860px;margin:24px auto;padding:0 16px;color:#0f172a}
+h1{font-size:26px} p.lead{color:#475569} form{display:flex;gap:8px}
+input{flex:1;padding:10px;font-size:16px}
+button{padding:10px 16px;font-size:16px;background:#0e7490;color:#fff;border:0;border-radius:6px}
+button:disabled{background:#94a3b8}
+.card{border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin:10px 0;white-space:pre-wrap}
+.refus{border-color:#fca5a5;background:#fef2f2} .ok{border-color:#86efac;background:#f0fdf4}
+.score,#status{color:#64748b;font-size:13px}
+.ex{font-size:14px;color:#0e7490;cursor:pointer;margin-right:12px;text-decoration:underline}
+</style>
+</head>
+<body>
+<h1>finrag : IA documentaire sourcée</h1>
+<p class="lead">45 fiches officielles service-public.gouv.fr du domaine de l'Intérieur
+(Licence Ouverte 2.0, DILA). La recherche tourne dans votre navigateur, avec le même modèle
+d'embeddings et le même seuil de preuve que finrag : vous voyez les passages sources qu'un modèle
+de langage recevrait, ou le refus. Les réponses rédigées par le modèle tournent ailleurs
+(Kubernetes, GPU). Code, tests et évaluations :
+<a href="https://github.com/HadiJamalAhmad/finrag">github.com/HadiJamalAhmad/finrag</a></p>
+<form id="f"><input id="q" placeholder="Posez une question de citoyen…"><button id="b" disabled>Demander</button></form>
+<p id="status">Chargement du modèle d'embeddings…</p>
+<p>
+<span class="ex" data-q="Je n'ai jamais eu de passeport : comment en obtenir un pour la première fois ?">Premier passeport</span>
+<span class="ex" data-q="Dans quels cas un passeport est-il délivré gratuitement ?">Passeport gratuit</span>
+<span class="ex" data-q="Comment obtenir une carte Vitale ?">Carte Vitale (hors corpus)</span>
+</p>
+<div id="out"></div>
+<script type="module">
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2";
+
+const esc = s => String(s).replace(/[&<>"]/g,
+  c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+const $ = id => document.getElementById(id);
+const [cfg, data] = await Promise.all([fetch("config.json").then(r => r.json()),
+                                       fetch("chunks.json").then(r => r.json())]);
+const extractor = await pipeline("feature-extraction", cfg.model,
+                                 { dtype: cfg.dtype, revision: cfg.revision });
+$("status").textContent = `Prêt : ${data.chunks.length} passages, seuil ${data.min_score}, ` +
+  `modèle ${cfg.model} (${cfg.dtype}), vérifié contre finrag @ ${data.finrag_commit} ` +
+  `sur ${cfg.checked_questions} questions (écart maximal ${cfg.max_score_diff.toFixed(4)}).`;
+$("b").disabled = false;
+
+async function go() {
+  const q = $("q").value.trim();
+  if (q.length < 3) return;
+  $("out").textContent = "…";
+  const v = Array.from((await extractor(q, { pooling: "mean", normalize: true })).data);
+  const hits = data.chunks.map(c => [c.v.reduce((s, x, i) => s + x * v[i], 0), c])
+                          .sort((a, b) => b[0] - a[0]).slice(0, data.top_k);
+  const best = hits[0][0];
+  if (best < data.min_score) {
+    $("out").innerHTML = '<div class="card refus"><b>Refus</b> : Je ne sais pas d\'après les ' +
+      'documents fournis.<br><span class="score">Étape : evidence · meilleur score ' +
+      best.toFixed(3) + ' &lt; ' + data.min_score + '</span></div>';
+    return;
+  }
+  $("out").innerHTML = '<div class="card ok"><b>Preuve suffisante</b> (meilleur score ' +
+    best.toFixed(3) + ' ≥ ' + data.min_score + ') : voici les passages que le modèle recevrait.</div>' +
+    hits.map(([s, c], i) => '<div class="card"><div class="score">[' + (i + 1) + '] score ' +
+      s.toFixed(3) + ' · <a href="' + esc(c.u) + '" target="_blank">' + esc(c.t) + '</a></div>' +
+      esc(c.x) + '</div>').join('');
+}
+document.querySelectorAll('.ex').forEach(e => e.onclick = () => { $("q").value = e.dataset.q; go(); });
+$("f").onsubmit = ev => { ev.preventDefault(); go(); };
+</script>
+</body>
+</html>
