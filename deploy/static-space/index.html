@@ -44,7 +44,8 @@ const extractor = await pipeline("feature-extraction", cfg.model,
                                  { dtype: cfg.dtype, revision: cfg.revision });
 $("status").textContent = `Prêt : ${data.chunks.length} passages, seuil ${data.min_score}, ` +
   `modèle ${cfg.model} (${cfg.dtype}), vérifié contre finrag @ ${data.finrag_commit} ` +
-  `sur ${cfg.checked_questions} questions (écart maximal ${cfg.max_score_diff.toFixed(4)}).`;
+  `sur ${cfg.checked_questions} questions (écart maximal ${cfg.max_score_diff.toFixed(4)}, ` +
+  `sous la marge de ${cfg.closest_margin.toFixed(4)} de la question la plus proche du seuil).`;
 $("b").disabled = false;
 
 async function go() {

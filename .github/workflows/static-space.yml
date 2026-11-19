@@ -37,27 +37,34 @@ jobs:
         run: |
           npm init -y > /dev/null && npm install --silent @huggingface/transformers@4.3.2
           for d in q8 fp16 fp32; do node check_browser.mjs site "$d" || true; done
-      - name: Keep the lightest precision that agrees on every decision
+      # Agreeing on 69 questions is not enough: the error must also stay below the closest
+      # question's distance to the threshold, or a slightly different question could flip
+      # (q8 agreed on all 69 with an error of 0.030 against a closest margin of 0.004).
+      - name: Keep the lightest precision that agrees, with an error below every margin
         run: |
           python3 - <<'PY'
           import json, os, pathlib, sys
           site = pathlib.Path(os.environ["SITE"])
+          ref = json.loads((site / "reference.json").read_text())
+          margin = min(abs(r["best"] - float(os.environ["FINRAG_MIN_SCORE"])) for r in ref)
+          print("closest question to the threshold:", round(margin, 4))
           for d in ["q8", "fp16", "fp32"]:
               p = site.parent / f"browser-check-{d}.json"
               if not p.exists():
                   continue
               r = json.loads(p.read_text())
               print(d, "max diff", r["max_score_diff"], "mismatches", len(r["decision_mismatches"]))
-              if not r["decision_mismatches"]:
+              if not r["decision_mismatches"] and r["max_score_diff"] < margin:
                   (site / "config.json").write_text(json.dumps({
                       "model": "Xenova/paraphrase-multilingual-MiniLM-L12-v2",
                       "revision": "2c4055b12046f11709e9df2c122e59ffbdc2f900",
                       "dtype": d, "checked_questions": r["questions"],
-                      "max_score_diff": r["max_score_diff"]}, indent=1))
+                      "max_score_diff": r["max_score_diff"], "closest_margin": margin},
+                      indent=1))
                   print("kept", d)
                   break
           else:
-              sys.exit("no precision agrees with finrag on every decision: nothing to publish")
+              sys.exit("no precision agrees with finrag within the margin: nothing to publish")
           PY
           cp deploy/static-space/index.html deploy/static-space/README.md "$SITE/"
       - uses: actions/upload-artifact@v4

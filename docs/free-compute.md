@@ -61,7 +61,9 @@ So the demo runs in the visitor's browser: the `static-space` workflow computes 
 passages' vectors with finrag's own `embed()`, then checks that the browser model
 (transformers.js, `Xenova/paraphrase-multilingual-MiniLM-L12-v2` at a pinned revision) gives the
 same answer/refuse decision as finrag on all 69 evaluation questions, at q8, fp16 and fp32, and
-keeps the lightest precision that agrees. No agreement, nothing to publish.
+keeps the lightest precision that agrees AND whose largest score error stays below the
+closest question's distance to the threshold (q8 agreed on all 69 but erred by 0.030 against a
+margin of 0.004, so fp16 is kept). No such precision, nothing to publish.
 
 ```bash
 gh workflow run static-space.yml && gh run watch

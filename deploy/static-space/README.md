@@ -19,7 +19,8 @@ modèle de langage recevrait, ou le refus.
 
 Avant chaque publication, une vérification automatique compare la version navigateur du modèle
 à finrag sur les 69 questions de ses deux suites d'évaluation : la précision retenue est la plus
-légère qui donne exactement les mêmes décisions (répondre ou refuser). L'écart mesuré est affiché
+légère qui donne exactement les mêmes décisions (répondre ou refuser) et dont l'écart de score
+reste inférieur à la distance au seuil de la question la plus proche. L'écart mesuré est affiché
 sur la page.
 
 Code, tests et évaluations : https://github.com/HadiJamalAhmad/finrag
