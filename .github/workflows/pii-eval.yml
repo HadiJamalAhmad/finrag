@@ -1,0 +1,37 @@
+# Personal-data masking, scored on a free CPU runner, ON DEMAND only.
+#
+# eval/suites/pii-fr.jsonl: synthetic French questions (eval/make_pii_suite.py), every number
+# invented but valid, look-alikes with wrong keys. Gates fixed before the first run
+# (finrag.pii.PII_GATES): no leak, no false mask, names >= 0.80 recall and precision.
+#
+# Run: Actions tab > pii-eval > Run workflow, or  gh workflow run pii-eval.yml
+name: pii-eval
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pii-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen --extra pii --extra dev
+      - name: The suite file is exactly what its generator writes
+        run: uv run python eval/make_pii_suite.py && git diff --exit-code eval/suites/pii-fr.jsonl
+      - name: Regex only (checked numbers, emails, phones)
+        run: uv run finrag eval-pii eval/suites/pii-fr.jsonl --pii regex --out eval/reports/pii-regex.json
+      - name: Full (+ names with spaCy fr_core_news_sm)
+        run: uv run finrag eval-pii eval/suites/pii-fr.jsonl --pii full --out eval/reports/pii-full.json
+      - name: Unit tests, with the real spaCy model present
+        run: uv run pytest -q tests/test_pii.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pii-reports
+          path: eval/reports/pii-*.json

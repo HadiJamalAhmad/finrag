@@ -23,6 +23,11 @@ dependencies = [
 dev = ["pytest>=8", "ruff>=0.5"]
 # Deploy the backend to Modal: deploy/modal_app.py
 deploy = ["modal>=1.6"]
+# Names in questions (FINRAG_PII=full): spaCy's small French model, pinned by its release.
+pii = [
+    "spacy>=3.8,<3.9",
+    "fr-core-news-sm @ https://github.com/explosion/spacy-models/releases/download/fr_core_news_sm-3.8.0/fr_core_news_sm-3.8.0-py3-none-any.whl",
+]
 
 [project.scripts]
 finrag = "finrag.cli:main"
@@ -30,6 +35,9 @@ finrag = "finrag.cli:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true  # the spaCy model is published as a release wheel only
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/finrag"]

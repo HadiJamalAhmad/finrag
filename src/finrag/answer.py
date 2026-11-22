@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from finrag import grounding, scope
+from finrag import grounding, pii, scope
 from finrag.config import Settings
 from finrag.models import Usage, model_parameters, ollama_options, strip_thinking, unfinished
 from finrag.tracing import NULL
@@ -43,6 +43,8 @@ class Answer:
     usage: dict | None = None
     # The Langfuse trace of this answer (None when tracing is off).
     trace_id: str | None = None
+    # Personal data masked in the question, by kind ({"NIR": 1}): counts, never values.
+    pii: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -119,16 +121,20 @@ def answer(question: str, sc: scope.Scope, store, settings: Settings, llm=genera
     groups: the user's groups (from SSO in production). None = no identity: public
     documents only (the store's default). Restricted documents never reach the model.
     """
+    # Personal data is masked first: the model, the trace and the passage search only
+    # ever see placeholders. The user gets the values back in the answer.
+    masked = pii.protector(settings.pii)(question)
     ctx = trace_context or {}
     if tracer is None or not tracer.enabled:
-        return _answer(question, sc, store, settings, llm, NULL, groups)
-    with tracer.root("answer-question", "chain", input=question,
+        a = _answer(masked.text, sc, store, settings, llm, NULL, groups)
+        return unmask(a, question, masked)
+    with tracer.root("answer-question", "chain", input=masked.text,
                      tags=["pipeline", settings.model, *ctx.get("tags", [])],
                      metadata={"model_id": settings.preset.model_id,
                                "min_score": settings.min_score, "top_k": settings.top_k,
-                               **ctx.get("metadata", {})},
+                               "pii_masked": masked.kinds(), **ctx.get("metadata", {})},
                      environment=ctx.get("environment")) as root:
-        a = _answer(question, sc, store, settings, llm, root, groups)
+        a = _answer(masked.text, sc, store, settings, llm, root, groups)
         # What a reviewer needs at a glance; sources and usage go to metadata.
         # The answer itself, at a glance; the deciding stage is in metadata and scores.
         root.update(output=a.answer,
@@ -138,6 +144,13 @@ def answer(question: str, sc: scope.Scope, store, settings: Settings, llm=genera
         root.score("outcome", a.stage, "CATEGORICAL", comment=a.reason)
         root.score("refused", 1 if a.refused else 0, "BOOLEAN")
         a.trace_id = root.trace_id
+    return unmask(a, question, masked)  # after the trace: it keeps the placeholders
+
+
+def unmask(a: Answer, question: str, masked: pii.Masked) -> Answer:
+    """The user's own values back in the answer, once every check has run on the masked text
+    (placeholders hold no digits, so the figure check never mistakes one for a number)."""
+    a.question, a.answer, a.pii = question, masked.restore(a.answer), masked.kinds()
     return a
 
 

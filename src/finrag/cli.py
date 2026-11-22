@@ -247,6 +247,28 @@ def cmd_eval_extract(args, s) -> None:
     print(f"report: {out}")
 
 
+def cmd_eval_pii(args, s) -> None:
+    """Score the personal-data masking (FINRAG_PII / --pii) on a labelled suite."""
+    from finrag import pii
+
+    suite = [json.loads(ln) for ln in Path(args.suite).read_text(encoding="utf-8").splitlines()
+             if ln.strip()]
+    mode = args.pii or s.pii
+    if mode != "full":  # names need the NER: without it, score only what regex can find
+        suite = [c | {"pii": [p for p in c["pii"] if p["kind"] != "NAME"]} for c in suite]
+    report = {"mode": mode} | pii.score(suite, pii.protector(mode))
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
+    for kind, r in report["per_kind"].items():
+        print(f"{kind:6} recall {r['recall']}  precision {r['precision']}  "
+              f"(found {r['found']}, missed {r['missed']}, wrong {r['wrong']})")
+    for k, g in report["gates"].items():
+        print(f"{k}: {g['value']} ({g['threshold']}) "
+              f"{'n/a' if g['pass'] is None else 'PASS' if g['pass'] else 'FAIL'}")
+    print(f"report: {out}")
+
+
 def _print_usage(usage: dict | None) -> None:
     if usage:
         print(f"model {usage['model']}: {usage['prompt_tokens']}+{usage['completion_tokens']} "
@@ -293,9 +315,14 @@ def main() -> None:
     xe.add_argument("--cache", help="folder keeping each finished sheet: a rerun resumes")
     xe.add_argument("--pause", type=float, default=0.0,
                     help="seconds between model calls, to let a laptop GPU cool down")
+    pe = sub.add_parser("eval-pii", help="score the personal-data masking on a labelled suite")
+    pe.add_argument("suite")
+    pe.add_argument("--pii", choices=["off", "regex", "full"],
+                    help="masking mode (default: FINRAG_PII, then regex)")
+    pe.add_argument("--out", default="eval/reports/pii.json")
     args = p.parse_args()
     {"fetch": cmd_fetch, "ingest": cmd_ingest, "ask": cmd_ask, "agent": cmd_agent,
-     "eval": cmd_eval, "pull-model": cmd_pull_model,
+     "eval": cmd_eval, "eval-pii": cmd_eval_pii, "pull-model": cmd_pull_model,
      "fetch-docs": cmd_fetch_docs, "extract": cmd_extract,
      "eval-extract": cmd_eval_extract}[args.cmd](args, _settings(args))
 

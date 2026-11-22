@@ -31,8 +31,8 @@ from typing import Protocol, TypedDict
 import httpx
 from langgraph.graph import END, START, StateGraph
 
-from finrag import grounding, scope
-from finrag.answer import REFUSAL, Answer, _usage_fields
+from finrag import grounding, pii, scope
+from finrag.answer import REFUSAL, Answer, _usage_fields, unmask
 from finrag.config import Settings
 from finrag.models import (
     ModelPreset,
@@ -247,20 +247,24 @@ def traced_run(question: str, sc: scope.Scope, guard: ToolGuard, model: ChatMode
                settings: Settings, tracer=None) -> AgentAnswer:
     """run() inside one Langfuse trace: an `agent` root, a generation per model turn,
     a `tool` per call (siblings, in order), guardrails, and the outcome as scores."""
+    # Personal data masked first, as in answer.answer: the model, its tools and the trace
+    # only see placeholders.
+    masked = pii.protector(settings.pii)(question)
     if tracer is None or not tracer.enabled:
-        return run(question, sc, guard, model, gpu=settings.gpu)
-    with tracer.root("answer-with-tools", "agent", input=question,
+        return unmask(run(masked.text, sc, guard, model, gpu=settings.gpu), question, masked)
+    with tracer.root("answer-with-tools", "agent", input=masked.text,
                      tags=["agent", settings.model],
                      metadata={"model_id": settings.preset.model_id,
-                               "max_calls": guard.max_calls}) as root:
-        a = run(question, sc, guard, model, gpu=settings.gpu, obs=root)
+                               "max_calls": guard.max_calls,
+                               "pii_masked": masked.kinds()}) as root:
+        a = run(masked.text, sc, guard, model, gpu=settings.gpu, obs=root)
         root.update(output=a.answer,
                     metadata={"stage": a.stage, "reason": a.reason, "sources": a.sources,
                               "usage": a.usage, "tool_calls": len(a.steps)})
         root.score("outcome", a.stage, "CATEGORICAL", comment=a.reason)
         root.score("refused", 1 if a.refused else 0, "BOOLEAN")
         a.trace_id = root.trace_id
-    return a
+    return unmask(a, question, masked)
 
 
 def _trace_messages(messages: list[dict]) -> list[dict]:

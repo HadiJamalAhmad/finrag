@@ -1,0 +1,38 @@
+{"id": "pii-001", "text": "Bonjour, je m'appelle Claire Girard, comment obtenir un extrait de casier judiciaire ?", "pii": [{"kind": "NAME", "value": "Claire Girard"}]}
+{"id": "pii-002", "text": "Je suis Chloé Moreau, mon numéro de sécurité sociale est 1 81 02 75 435 669 57. Comment changer l'adresse de ma carte grise ?", "pii": [{"kind": "NAME", "value": "Chloé Moreau"}, {"kind": "NIR", "value": "1 81 02 75 435 669 57"}]}
+{"id": "pii-003", "text": "Pour renouveler mon passeport, vous pouvez me joindre au 07 06 60 96 72 ou à thomas.bernard@example.fr. Thomas Bernard", "pii": [{"kind": "PHONE", "value": "07 06 60 96 72"}, {"kind": "EMAIL", "value": "thomas.bernard@example.fr"}, {"kind": "NAME", "value": "Thomas Bernard"}]}
+{"id": "pii-004", "text": "Mon fils Karim Benali doit faire une procuration de vote. Mon IBAN pour le remboursement : FR34 6685 9660 8884 4420 5673 406.", "pii": [{"kind": "NAME", "value": "Karim Benali"}, {"kind": "IBAN", "value": "FR34 6685 9660 8884 4420 5673 406"}]}
+{"id": "pii-005", "text": "Bonjour, je m'appelle Aïcha Dubois, comment obtenir un extrait de casier judiciaire ?", "pii": [{"kind": "NAME", "value": "Aïcha Dubois"}]}
+{"id": "pii-006", "text": "Je suis Mehdi Moreau, mon numéro de sécurité sociale est 2 86 01 78 833 266 59. Comment demander un titre de séjour ?", "pii": [{"kind": "NAME", "value": "Mehdi Moreau"}, {"kind": "NIR", "value": "2 86 01 78 833 266 59"}]}
+{"id": "pii-007", "text": "Pour changer l'adresse de ma carte grise, vous pouvez me joindre au 07 66 42 51 23 ou à thomas.mercier@example.fr. Thomas Mercier", "pii": [{"kind": "PHONE", "value": "07 66 42 51 23"}, {"kind": "EMAIL", "value": "thomas.mercier@example.fr"}, {"kind": "NAME", "value": "Thomas Mercier"}]}
+{"id": "pii-008", "text": "Mon fils Mehdi Mercier doit obtenir un extrait de casier judiciaire. Mon IBAN pour le remboursement : FR48 3071 3105 0673 3733 6549 440.", "pii": [{"kind": "NAME", "value": "Mehdi Mercier"}, {"kind": "IBAN", "value": "FR48 3071 3105 0673 3733 6549 440"}]}
+{"id": "pii-009", "text": "Bonjour, je m'appelle Sophie Traoré, comment déclarer la perte de mon permis de conduire ?", "pii": [{"kind": "NAME", "value": "Sophie Traoré"}]}
+{"id": "pii-010", "text": "Je suis Youssef Fontaine, mon numéro de sécurité sociale est 1 46 12 93 655 516 43. Comment demander un titre de séjour ?", "pii": [{"kind": "NAME", "value": "Youssef Fontaine"}, {"kind": "NIR", "value": "1 46 12 93 655 516 43"}]}
+{"id": "pii-011", "text": "Pour déclarer la perte de mon permis de conduire, vous pouvez me joindre au 07 40 96 11 31 ou à nadia.traore@example.fr. Nadia Traoré", "pii": [{"kind": "PHONE", "value": "07 40 96 11 31"}, {"kind": "EMAIL", "value": "nadia.traore@example.fr"}, {"kind": "NAME", "value": "Nadia Traoré"}]}
+{"id": "pii-012", "text": "Mon fils Camille Benali doit changer l'adresse de ma carte grise. Mon IBAN pour le remboursement : FR09 3699 8116 6394 0468 9229 427.", "pii": [{"kind": "NAME", "value": "Camille Benali"}, {"kind": "IBAN", "value": "FR09 3699 8116 6394 0468 9229 427"}]}
+{"id": "pii-013", "text": "Le paiement par carte 4824 5937 4543 5693 a été refusé sur le site de l'ANTS, que faire ?", "pii": [{"kind": "CARD", "value": "4824 5937 4543 5693"}]}
+{"id": "pii-014", "text": "Le paiement par carte 4964 3043 6912 3122 a été refusé sur le site de l'ANTS, que faire ?", "pii": [{"kind": "CARD", "value": "4964 3043 6912 3122"}]}
+{"id": "pii-015", "text": "Le paiement par carte 4261 6138 3752 1000 a été refusé sur le site de l'ANTS, que faire ?", "pii": [{"kind": "CARD", "value": "4261 6138 3752 1000"}]}
+{"id": "pii-016", "text": "Le paiement par carte 4778 2758 4009 3728 a été refusé sur le site de l'ANTS, que faire ?", "pii": [{"kind": "CARD", "value": "4778 2758 4009 3728"}]}
+{"id": "pii-017", "text": "Mon NIR 1 89 12 69 396 679 80 est-il obligatoire pour la demande ?", "pii": [{"kind": "NIR", "value": "1 89 12 69 396 679 80"}]}
+{"id": "pii-018", "text": "NIR sans espaces : 248079223540342, est-ce correct ?", "pii": [{"kind": "NIR", "value": "248079223540342"}]}
+{"id": "pii-019", "text": "Mon NIR 2 91 01 93 117 774 11 est-il obligatoire pour la demande ?", "pii": [{"kind": "NIR", "value": "2 91 01 93 117 774 11"}]}
+{"id": "pii-020", "text": "NIR sans espaces : 191066956912206, est-ce correct ?", "pii": [{"kind": "NIR", "value": "191066956912206"}]}
+{"id": "pii-021", "text": "Mon NIR 2 49 11 93 716 567 83 est-il obligatoire pour la demande ?", "pii": [{"kind": "NIR", "value": "2 49 11 93 716 567 83"}]}
+{"id": "pii-022", "text": "NIR sans espaces : 250101334593440, est-ce correct ?", "pii": [{"kind": "NIR", "value": "250101334593440"}]}
+{"id": "pii-023", "text": "bonjour je suis julien moreau et j'ai perdu mon passeport", "pii": [{"kind": "NAME", "value": "julien moreau"}]}
+{"id": "pii-024", "text": "Madame Haddad souhaite savoir si sa demande est complète.", "pii": [{"kind": "NAME", "value": "Haddad"}]}
+{"id": "pii-025", "text": "Mme Nadia Benali, née le 3 mars 1990, demande un titre de séjour.", "pii": [{"kind": "NAME", "value": "Nadia Benali"}]}
+{"id": "pii-026", "text": "Mon voisin, M. Thomas Girard, peut-il signer la procuration ?", "pii": [{"kind": "NAME", "value": "Thomas Girard"}]}
+{"id": "pii-027", "text": "Le numéro 2 71 11 92 756 506 28 est-il un numéro de sécurité sociale valide ?", "pii": []}
+{"id": "pii-028", "text": "Le timbre fiscal pour un passeport adulte coûte 86 euros.", "pii": []}
+{"id": "pii-029", "text": "Appelez le 3939 pour joindre Allô Service Public.", "pii": []}
+{"id": "pii-030", "text": "Le formulaire cerfa n° 12100*03 est-il encore valable ?", "pii": []}
+{"id": "pii-031", "text": "La préfecture des Yvelines est-elle ouverte le samedi ?", "pii": []}
+{"id": "pii-032", "text": "Quel est le délai pour une carte d'identité à Paris en mars 2026 ?", "pii": []}
+{"id": "pii-033", "text": "Mon code postal est 78300, quelle mairie dois-je contacter ?", "pii": []}
+{"id": "pii-034", "text": "L'amende de 135 euros peut-elle être minorée à 90 euros ?", "pii": []}
+{"id": "pii-035", "text": "Le SIRET 732 829 320 00074 correspond-il à une entreprise ?", "pii": []}
+{"id": "pii-036", "text": "Que dit l'article L. 121-1 du code de la route ?", "pii": []}
+{"id": "pii-037", "text": "Le ministère de l'Intérieur publie-t-il les délais par département ?", "pii": []}
+{"id": "pii-038", "text": "Victor Hugo est-il le nom de la rue de la mairie ?", "pii": []}

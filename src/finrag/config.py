@@ -77,6 +77,9 @@ class Settings:
     site_origins: str = os.environ.get("FINRAG_SITE_ORIGINS", "https://finrag-ten.vercel.app")
     # Separates traces in Langfuse: development (here), production (Modal), eval.
     environment: str = os.environ.get("FINRAG_ENV", "development")
+    # Personal data in questions, masked before the model and the traces (finrag.pii):
+    # off | regex (checked numbers, emails, phones) | full (+ names, spaCy: extra `pii`).
+    pii: str = os.environ.get("FINRAG_PII", "regex")
     top_k: int = int(os.environ.get("FINRAG_TOP_K", "5"))
     # Below this cosine score the best passage is not treated as evidence.
     # 0.72: calibrated on eval/suites/seed.jsonl, real 10-Ks (2026-11-07). Lowest
