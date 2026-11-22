@@ -30,6 +30,10 @@ class ProviderNotConfigured(RuntimeError):
 
 
 def api_key(preset: ModelPreset, settings) -> str:
+    if preset.provider == "vllm":
+        # Our own server: a key only if it was started with --api-key. vLLM ignores the
+        # header otherwise, so a placeholder keeps the request shape identical.
+        return settings.vllm_api_key or "EMPTY"
     key = {"openai": settings.openai_api_key,
            "anthropic": settings.anthropic_api_key}.get(preset.provider, "")
     if not key:
@@ -40,14 +44,22 @@ def api_key(preset: ModelPreset, settings) -> str:
 
 # ---------------------------------------------------------------- OpenAI
 def _openai_call(preset: ModelPreset, key: str, messages: list[dict],
-                 tools: list[dict] | None = None) -> tuple[dict, Usage, str | None]:
-    body = {"model": preset.model_id, "messages": messages,
-            # GPT-6 models take max_completion_tokens; no temperature (see models.py).
-            "max_completion_tokens": preset.num_predict, **dict(preset.api_params)}
+                 tools: list[dict] | None = None,
+                 base_url: str | None = None) -> tuple[dict, Usage, str | None]:
+    if preset.provider == "vllm":
+        # Open weights on our own vLLM server: deterministic, the classic token cap.
+        body = {"model": preset.model_id, "messages": messages, "temperature": 0,
+                "max_tokens": preset.num_predict, **dict(preset.api_params)}
+        url = f"{(base_url or '').rstrip('/')}/chat/completions"
+    else:
+        body = {"model": preset.model_id, "messages": messages,
+                # GPT-6 models take max_completion_tokens; no temperature (see models.py).
+                "max_completion_tokens": preset.num_predict, **dict(preset.api_params)}
+        url = OPENAI_URL
     if tools:
         body["tools"] = tools
     t0 = time.perf_counter()
-    r = httpx.post(OPENAI_URL, json=body, timeout=TIMEOUT,
+    r = httpx.post(url, json=body, timeout=TIMEOUT,
                    headers={"Authorization": f"Bearer {key}"})
     r.raise_for_status()
     data = r.json()
@@ -78,12 +90,15 @@ def _to_openai(messages: list[dict]) -> list[dict]:
 
 
 class OpenAIChat:
-    def __init__(self, preset: ModelPreset, key: str):
-        self.preset, self.key, self.usage = preset, key, None
+    """OpenAI's API, or any server that speaks it (vLLM: pass its base_url)."""
+
+    def __init__(self, preset: ModelPreset, key: str, base_url: str | None = None):
+        self.preset, self.key, self.usage, self.base_url = preset, key, None, base_url
         self.last_usage, self.last_reasoning = None, None  # the latest turn, for its trace
 
     def chat(self, messages: list[dict], tools: list[dict]) -> dict:
-        msg, turn, done = _openai_call(self.preset, self.key, _to_openai(messages), tools)
+        msg, turn, done = _openai_call(self.preset, self.key, _to_openai(messages), tools,
+                                       self.base_url)
         self.last_usage, self.last_reasoning = turn, None
         self.usage = turn if self.usage is None else self.usage + turn
         calls = [{"id": c["id"], "function": {"name": c["function"]["name"],
@@ -175,8 +190,8 @@ def generate_hosted(prompt: str, preset: ModelPreset,
     """(answer, usage, done_reason, reasoning)."""
     key = api_key(preset, settings)
     user = [{"role": "user", "content": prompt}]
-    if preset.provider == "openai":
-        msg, usage, done = _openai_call(preset, key, user)
+    if preset.provider in ("openai", "vllm"):
+        msg, usage, done = _openai_call(preset, key, user, base_url=settings.vllm_url)
         return (msg.get("content") or "").strip(), usage, done, None
     if preset.provider == "anthropic":
         blocks, usage, done = _anthropic_call(preset, key, user)
@@ -186,6 +201,8 @@ def generate_hosted(prompt: str, preset: ModelPreset,
 
 def chat_model(preset: ModelPreset, settings):
     key = api_key(preset, settings)
+    if preset.provider == "vllm":
+        return OpenAIChat(preset, key, settings.vllm_url)
     return (OpenAIChat if preset.provider == "openai" else AnthropicChat)(preset, key)
 
 
