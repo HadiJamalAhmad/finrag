@@ -1,4 +1,4 @@
-# Personal-data masking, scored on a free CPU runner, ON DEMAND only.
+# Personal-data masking, scored on a free CPU runner: on demand, and when its files change.
 #
 # eval/suites/pii-fr.jsonl: synthetic French questions (eval/make_pii_suite.py), every number
 # invented but valid, look-alikes with wrong keys. Gates fixed before the first run
@@ -9,6 +9,12 @@ name: pii-eval
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - src/finrag/pii.py
+      - eval/make_pii_suite.py
+      - eval/suites/pii-fr.jsonl
+      - .github/workflows/pii-eval.yml
 
 permissions:
   contents: read
