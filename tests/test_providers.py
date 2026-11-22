@@ -48,9 +48,9 @@ ANTHROPIC_OK = {"content": [{"type": "thinking", "thinking": "let me see"},
 
 
 # ---------------------------------------------------------------- registry and cost
-def test_five_presets_two_hosted_with_token_prices():
+def test_six_presets_two_hosted_with_token_prices():
     assert list(models.MODEL_REGISTRY) == ["llama-3b", "qwen3-4b", "mistral-24b",
-                                           "gpt-luna", "claude-haiku"]
+                                           "gpt-luna", "claude-haiku", "mistral-7b-vllm"]
     assert models.OLLAMA_MODELS == ["llama-3b", "qwen3-4b", "mistral-24b"]
     for name in ("gpt-luna", "claude-haiku"):
         p = models.get(name)
@@ -188,3 +188,41 @@ def test_the_graph_pairs_each_tool_result_with_its_call_id(filing_10k, sec_names
     agent.run("Acme revenue in fiscal 2025?", sc, guard, model)
     tool_msgs = [m for m in model.seen[-1] if m["role"] == "tool"]
     assert tool_msgs and tool_msgs[0]["tool_call_id"] == "abc"
+
+
+# ---------------------------------------------------------------- vLLM (our own GPU)
+def test_vllm_is_self_hosted_pinned_by_revision_and_priced_by_gpu_time():
+    p = models.get("mistral-7b-vllm")
+    assert p.provider == "vllm" and p.provider in models.SELF_HOSTED
+    assert p.usd_per_mtok is None and len(p.hf_revision) == 40  # a full commit hash
+    d = models.Usage("mistral-7b-vllm", 1000, 100, seconds=3600, calls=1).as_dict("L4")
+    assert d["pricing"] == "gpu-time" and d["gpu"] == "L4"
+    assert d["est_cost_usd"] == pytest.approx(models.GPU_USD_PER_HOUR["L4"])
+
+
+def test_vllm_request_goes_to_our_server_deterministic_with_max_tokens(monkeypatch):
+    sent = capture(monkeypatch, OPENAI_OK)
+    s = replace(S, model="mistral-7b-vllm", vllm_url="http://vllm.local:8000/v1/")
+    g = ans.generate("prompt", s)
+    url, body, headers = sent[0]
+    assert url == "http://vllm.local:8000/v1/chat/completions"  # never api.openai.com
+    assert body["model"] == "mistral-7b" and body["temperature"] == 0
+    assert body["max_tokens"] == 1024 and "max_completion_tokens" not in body
+    assert headers["Authorization"] == "Bearer EMPTY"  # no key needed, none leaked
+    assert g.text == "A supplier [1]." and g.done_reason == "stop"
+
+
+def test_vllm_needs_no_vendor_key_but_uses_its_own_when_set(monkeypatch):
+    sent = capture(monkeypatch, OPENAI_OK)
+    s = replace(S, model="mistral-7b-vllm", openai_api_key="", vllm_api_key="vk-local")
+    ans.generate("prompt", s)
+    assert sent[0][2]["Authorization"] == "Bearer vk-local"
+
+
+def test_vllm_agent_chat_uses_the_same_server(monkeypatch):
+    sent = capture(monkeypatch, OPENAI_OK)
+    s = replace(S, model="mistral-7b-vllm", vllm_url="http://vllm.local:8000/v1")
+    chat = providers.chat_model(s.preset, s)
+    out = chat.chat([{"role": "user", "content": "hi"}], tools=[])
+    assert sent[0][0] == "http://vllm.local:8000/v1/chat/completions"
+    assert out["content"] == "A supplier [1]."

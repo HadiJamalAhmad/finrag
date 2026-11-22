@@ -19,6 +19,7 @@ from statistics import mean
 
 from finrag import metrics
 from finrag.answer import answer
+from finrag.models import SELF_HOSTED
 
 GATES = {"recall@5": (">=", 0.80), "mrr": (">=", 0.60), "false_accept_rate": ("<=", 0.10)}
 
@@ -106,8 +107,8 @@ def _cost_and_latency(settings, seconds: list[float], usages: list[dict]) -> dic
     total = sum(u["est_cost_usd"] for u in usages)
     return {
         "model": {"preset": p.name, "label": p.label, "model_id": p.model_id,
-                  "provider": p.provider, "digest": p.digest,
-                  "gpu": settings.gpu if p.provider == "ollama" else None},
+                  "provider": p.provider, "digest": p.digest, "hf_revision": p.hf_revision,
+                  "gpu": settings.gpu if p.provider in SELF_HOSTED else None},
         # End-to-end per question (scope + retrieval + model + checks), refusals included.
         "latency_s": {"mean": round(mean(seconds), 2) if seconds else None,
                       "p50": pct(0.5), "p95": pct(0.95)},

@@ -184,7 +184,7 @@ def models() -> dict:
 
 
 def _available(p, s) -> bool:
-    return {"ollama": True, "openai": bool(s.openai_api_key),
+    return {"ollama": True, "vllm": bool(s.vllm_url), "openai": bool(s.openai_api_key),
             "anthropic": bool(s.anthropic_api_key)}[p.provider]
 
 

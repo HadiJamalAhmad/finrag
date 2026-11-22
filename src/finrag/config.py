@@ -47,6 +47,11 @@ class Settings:
     embed_batch: int = int(os.environ.get("FINRAG_EMBED_BATCH", "0"))
     embed_model: str = os.environ.get("FINRAG_EMBED_MODEL", "BAAI/bge-small-en-v1.5")
     ollama_url: str = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+    # A vLLM server (OpenAI-compatible API) on our own GPU, for presets with provider "vllm".
+    vllm_url: str = os.environ.get("VLLM_URL", "http://localhost:8000/v1")
+    # Optional: vLLM started with --api-key. repr=False like every other secret.
+    vllm_api_key: str = field(default_factory=lambda: os.environ.get("VLLM_API_KEY", ""),
+                              repr=False)
     # A preset name from finrag.models.MODEL_REGISTRY (llama-3b | qwen3-4b | mistral-24b).
     model: str = os.environ.get("FINRAG_MODEL", "llama-3b")
     # The GPU the model runs on, for the cost estimate (finrag.models.GPU_USD_PER_HOUR).

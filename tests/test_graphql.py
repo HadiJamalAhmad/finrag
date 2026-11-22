@@ -39,8 +39,11 @@ def test_models_lists_every_preset_and_availability(client):
     c, _ = client
     data = gql(c, "{ models { name provider available digest } }")["data"]["models"]
     assert [m["name"] for m in data] == list(models.MODEL_REGISTRY)
-    hosted = {m["name"]: m["available"] for m in data if m["provider"] != "ollama"}
+    hosted = {m["name"]: m["available"] for m in data if m["provider"] not in models.SELF_HOSTED}
     assert hosted == {"gpt-luna": False, "claude-haiku": False}  # no keys in this test
+    # Our own vLLM server needs no vendor key: available as soon as VLLM_URL is set.
+    own = {m["name"]: m["available"] for m in data if m["provider"] == "vllm"}
+    assert own == {"mistral-7b-vllm": True}
 
 
 def test_answer_runs_the_same_pipeline_as_rest(client):

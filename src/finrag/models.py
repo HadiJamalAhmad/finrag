@@ -31,7 +31,10 @@ class ModelPreset:
     # checks. Hosted models have none (None).
     digest: str | None
     label: str  # shown to users: vendor, model, size
-    provider: str = "ollama"  # ollama | openai | anthropic
+    provider: str = "ollama"  # ollama | vllm | openai | anthropic
+    # vllm: the Hugging Face revision (commit) the server must load. Like an Ollama digest,
+    # a revision names the weights; a repo name alone is a moving pointer.
+    hf_revision: str | None = None
     # Hosted models: list price in USD per million (input, output) tokens.
     usd_per_mtok: tuple[float, float] | None = None
     # Hosted models: extra request fields, e.g. (("reasoning_effort", "none"),).
@@ -102,8 +105,21 @@ MODEL_REGISTRY: dict[str, ModelPreset] = {
         usd_per_mtok=(0.10, 0.50),
         num_predict=4096,
     ),
+    # Mistral 7B Instruct v0.3 (Apache 2.0) served by vLLM on our own GPU, through vLLM's
+    # OpenAI-compatible API (VLLM_URL). model_id is the --served-model-name; the weights
+    # are pinned by Hugging Face revision (ungated mirror of mistralai's release).
+    "mistral-7b-vllm": ModelPreset(
+        name="mistral-7b-vllm",
+        model_id="mistral-7b",
+        digest=None,
+        label="Mistral 7B Instruct v0.3 (vLLM)",
+        provider="vllm",
+        hf_revision="60b99dcbc7f853b7cd18472a607e8d045b96f03e",
+    ),
     # <- ADD A MODEL AS ONE LINE HERE (Ollama: and its digest in deploy/models.lock)
 }
+# Weights on our own GPU: no question or passage leaves the infrastructure.
+SELF_HOSTED = ("ollama", "vllm")
 # The presets on our own GPU (the image pulls them; the bake-off's default set).
 OLLAMA_MODELS = [n for n, p in MODEL_REGISTRY.items() if p.provider == "ollama"]
 DEFAULT_MODEL = "llama-3b"
@@ -235,6 +251,8 @@ def detect_gpu(nvidia_name: str) -> str:
 
 def model_parameters(preset: ModelPreset) -> dict:
     """What the generation was asked with, recorded on its Langfuse observation."""
+    if preset.provider == "vllm":
+        return {"temperature": 0, "max_tokens": preset.num_predict}
     if preset.provider == "ollama":
         params = {"temperature": 0, "num_ctx": preset.num_ctx, "num_predict": preset.num_predict}
         if preset.think is not None:
