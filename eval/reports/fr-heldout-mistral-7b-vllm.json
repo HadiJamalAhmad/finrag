@@ -1,0 +1,296 @@
+{
+  "generated_at": "2026-11-22T20:58:58+00:00",
+  "n_cases": 27,
+  "mode": "full",
+  "recall@5": 1.0,
+  "mrr": 0.833,
+  "false_accept_rate": 0.0,
+  "correct_refusal_rate": 1.0,
+  "over_refusal_rate": 0.176,
+  "n_answerable": 17,
+  "n_unanswerable": 10,
+  "model": {
+    "preset": "mistral-7b-vllm",
+    "label": "Mistral 7B Instruct v0.3 (vLLM)",
+    "model_id": "mistral-7b",
+    "provider": "vllm",
+    "digest": null,
+    "hf_revision": "60b99dcbc7f853b7cd18472a607e8d045b96f03e",
+    "gpu": "T4"
+  },
+  "latency_s": {
+    "mean": 6.0,
+    "p50": 3.35,
+    "p95": 17.71
+  },
+  "usage": {
+    "llm_answers": 18,
+    "prompt_tokens": 23458,
+    "completion_tokens": 4017,
+    "llm_seconds": 160.8,
+    "est_cost_usd_total": 0.0264,
+    "est_cost_usd_per_llm_answer": 0.00146
+  },
+  "cases": [
+    {
+      "id": "h-cni-mineur-perte",
+      "answerable": true,
+      "refused": true,
+      "stage": "numbers",
+      "seconds": 8.36,
+      "prompt_tokens": 1034,
+      "completion_tokens": 188,
+      "est_cost_usd": 0.001366
+    },
+    {
+      "id": "h-permis-moto-125",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 3.06,
+      "prompt_tokens": 1658,
+      "completion_tokens": 51,
+      "est_cost_usd": 0.000496
+    },
+    {
+      "id": "h-cni-mineur-premiere",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 13.44,
+      "prompt_tokens": 1116,
+      "completion_tokens": 344,
+      "est_cost_usd": 0.002196
+    },
+    {
+      "id": "h-nom-usage-parent",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 8.8,
+      "prompt_tokens": 1567,
+      "completion_tokens": 203,
+      "est_cost_usd": 0.001436
+    },
+    {
+      "id": "h-cni-majeur-perte",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 7.22,
+      "prompt_tokens": 695,
+      "completion_tokens": 183,
+      "est_cost_usd": 0.001177
+    },
+    {
+      "id": "h-liste-premiere",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 2.87,
+      "prompt_tokens": 1319,
+      "completion_tokens": 56,
+      "est_cost_usd": 0.000465
+    },
+    {
+      "id": "h-passeport-majeur-premier",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 7.53,
+      "prompt_tokens": 1402,
+      "completion_tokens": 181,
+      "est_cost_usd": 0.001215
+    },
+    {
+      "id": "h-passeport-mineur-premier",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 10.67,
+      "prompt_tokens": 1413,
+      "completion_tokens": 272,
+      "est_cost_usd": 0.001743
+    },
+    {
+      "id": "h-cni-majeur-vol",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 26.63,
+      "prompt_tokens": 1493,
+      "completion_tokens": 712,
+      "est_cost_usd": 0.004358
+    },
+    {
+      "id": "h-cni-mineur-vol",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 2.29,
+      "prompt_tokens": 801,
+      "completion_tokens": 55,
+      "est_cost_usd": 0.000365
+    },
+    {
+      "id": "h-presidentielle-dates",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 1.54,
+      "prompt_tokens": 982,
+      "completion_tokens": 28,
+      "est_cost_usd": 0.000247
+    },
+    {
+      "id": "h-cni-majeur-renouv",
+      "answerable": true,
+      "refused": true,
+      "stage": "model",
+      "seconds": 7.66,
+      "prompt_tokens": 1090,
+      "completion_tokens": 204,
+      "est_cost_usd": 0.00125
+    },
+    {
+      "id": "h-cni-mineur-renouv",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 10.92,
+      "prompt_tokens": 1089,
+      "completion_tokens": 290,
+      "est_cost_usd": 0.001784
+    },
+    {
+      "id": "h-passeport-mineur-renouv",
+      "answerable": true,
+      "refused": true,
+      "stage": "numbers",
+      "seconds": 17.71,
+      "prompt_tokens": 1620,
+      "completion_tokens": 454,
+      "est_cost_usd": 0.002896
+    },
+    {
+      "id": "h-passeport-mineur-vol",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 10.08,
+      "prompt_tokens": 1388,
+      "completion_tokens": 256,
+      "est_cost_usd": 0.001646
+    },
+    {
+      "id": "h-passeport-majeur-vol",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 7.73,
+      "prompt_tokens": 1022,
+      "completion_tokens": 204,
+      "est_cost_usd": 0.001261
+    },
+    {
+      "id": "h-domicile-mineur",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 11.74,
+      "prompt_tokens": 1904,
+      "completion_tokens": 282,
+      "est_cost_usd": 0.001918
+    },
+    {
+      "id": "h-refus-carte-vitale",
+      "answerable": false,
+      "refused": true,
+      "stage": "evidence",
+      "seconds": 0.04
+    },
+    {
+      "id": "h-refus-naissance",
+      "answerable": false,
+      "refused": true,
+      "stage": "evidence",
+      "seconds": 0.04
+    },
+    {
+      "id": "h-refus-rsa",
+      "answerable": false,
+      "refused": true,
+      "stage": "evidence",
+      "seconds": 0.04
+    },
+    {
+      "id": "h-refus-acte-mariage",
+      "answerable": false,
+      "refused": true,
+      "stage": "evidence",
+      "seconds": 0.03
+    },
+    {
+      "id": "h-refus-ceam",
+      "answerable": false,
+      "refused": true,
+      "stage": "model",
+      "seconds": 3.35,
+      "prompt_tokens": 1865,
+      "completion_tokens": 54,
+      "est_cost_usd": 0.000544
+    },
+    {
+      "id": "h-refus-carte-grise-adresse",
+      "answerable": false,
+      "refused": true,
+      "stage": "evidence",
+      "seconds": 0.04
+    },
+    {
+      "id": "h-refus-permis-perdu",
+      "answerable": false,
+      "refused": true,
+      "stage": "evidence",
+      "seconds": 0.03
+    },
+    {
+      "id": "h-refus-code-route",
+      "answerable": false,
+      "refused": true,
+      "stage": "evidence",
+      "seconds": 0.03
+    },
+    {
+      "id": "h-refus-permis-chasser",
+      "answerable": false,
+      "refused": true,
+      "stage": "evidence",
+      "seconds": 0.03
+    },
+    {
+      "id": "h-refus-meteo",
+      "answerable": false,
+      "refused": true,
+      "stage": "evidence",
+      "seconds": 0.03
+    }
+  ],
+  "gates": {
+    "recall@5": {
+      "value": 1.0,
+      "threshold": ">= 0.8",
+      "pass": true
+    },
+    "mrr": {
+      "value": 0.833,
+      "threshold": ">= 0.6",
+      "pass": true
+    },
+    "false_accept_rate": {
+      "value": 0.0,
+      "threshold": "<= 0.1",
+      "pass": true
+    }
+  }
+}

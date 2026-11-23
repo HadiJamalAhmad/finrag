@@ -1,0 +1,297 @@
+{
+ "mode": "regex",
+ "n_cases": 38,
+ "leaks": 0,
+ "false_masks": 0,
+ "name_recall": null,
+ "name_precision": null,
+ "per_kind": {
+  "NIR": {
+   "found": 9,
+   "missed": 0,
+   "wrong": 0,
+   "recall": 1.0,
+   "precision": 1.0
+  },
+  "IBAN": {
+   "found": 3,
+   "missed": 0,
+   "wrong": 0,
+   "recall": 1.0,
+   "precision": 1.0
+  },
+  "CARD": {
+   "found": 4,
+   "missed": 0,
+   "wrong": 0,
+   "recall": 1.0,
+   "precision": 1.0
+  },
+  "EMAIL": {
+   "found": 3,
+   "missed": 0,
+   "wrong": 0,
+   "recall": 1.0,
+   "precision": 1.0
+  },
+  "PHONE": {
+   "found": 3,
+   "missed": 0,
+   "wrong": 0,
+   "recall": 1.0,
+   "precision": 1.0
+  }
+ },
+ "cases": [
+  {
+   "id": "pii-001",
+   "masked": "Bonjour, je m'appelle Claire Girard, comment obtenir un extrait de casier judiciaire ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-002",
+   "masked": "Je suis Chloé Moreau, mon numéro de sécurité sociale est [NIR_A]. Comment changer l'adresse de ma carte grise ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-003",
+   "masked": "Pour renouveler mon passeport, vous pouvez me joindre au [PHONE_A] ou à [EMAIL_A]. Thomas Bernard",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-004",
+   "masked": "Mon fils Karim Benali doit faire une procuration de vote. Mon IBAN pour le remboursement : [IBAN_A].",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-005",
+   "masked": "Bonjour, je m'appelle Aïcha Dubois, comment obtenir un extrait de casier judiciaire ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-006",
+   "masked": "Je suis Mehdi Moreau, mon numéro de sécurité sociale est [NIR_A]. Comment demander un titre de séjour ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-007",
+   "masked": "Pour changer l'adresse de ma carte grise, vous pouvez me joindre au [PHONE_A] ou à [EMAIL_A]. Thomas Mercier",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-008",
+   "masked": "Mon fils Mehdi Mercier doit obtenir un extrait de casier judiciaire. Mon IBAN pour le remboursement : [IBAN_A].",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-009",
+   "masked": "Bonjour, je m'appelle Sophie Traoré, comment déclarer la perte de mon permis de conduire ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-010",
+   "masked": "Je suis Youssef Fontaine, mon numéro de sécurité sociale est [NIR_A]. Comment demander un titre de séjour ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-011",
+   "masked": "Pour déclarer la perte de mon permis de conduire, vous pouvez me joindre au [PHONE_A] ou à [EMAIL_A]. Nadia Traoré",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-012",
+   "masked": "Mon fils Camille Benali doit changer l'adresse de ma carte grise. Mon IBAN pour le remboursement : [IBAN_A].",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-013",
+   "masked": "Le paiement par carte [CARD_A] a été refusé sur le site de l'ANTS, que faire ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-014",
+   "masked": "Le paiement par carte [CARD_A] a été refusé sur le site de l'ANTS, que faire ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-015",
+   "masked": "Le paiement par carte [CARD_A] a été refusé sur le site de l'ANTS, que faire ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-016",
+   "masked": "Le paiement par carte [CARD_A] a été refusé sur le site de l'ANTS, que faire ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-017",
+   "masked": "Mon NIR [NIR_A] est-il obligatoire pour la demande ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-018",
+   "masked": "NIR sans espaces : [NIR_A], est-ce correct ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-019",
+   "masked": "Mon NIR [NIR_A] est-il obligatoire pour la demande ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-020",
+   "masked": "NIR sans espaces : [NIR_A], est-ce correct ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-021",
+   "masked": "Mon NIR [NIR_A] est-il obligatoire pour la demande ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-022",
+   "masked": "NIR sans espaces : [NIR_A], est-ce correct ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-023",
+   "masked": "bonjour je suis julien moreau et j'ai perdu mon passeport",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-024",
+   "masked": "Madame Haddad souhaite savoir si sa demande est complète.",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-025",
+   "masked": "Mme Nadia Benali, née le 3 mars 1990, demande un titre de séjour.",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-026",
+   "masked": "Mon voisin, M. Thomas Girard, peut-il signer la procuration ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-027",
+   "masked": "Le numéro 2 71 11 92 756 506 28 est-il un numéro de sécurité sociale valide ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-028",
+   "masked": "Le timbre fiscal pour un passeport adulte coûte 86 euros.",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-029",
+   "masked": "Appelez le 3939 pour joindre Allô Service Public.",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-030",
+   "masked": "Le formulaire cerfa n° 12100*03 est-il encore valable ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-031",
+   "masked": "La préfecture des Yvelines est-elle ouverte le samedi ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-032",
+   "masked": "Quel est le délai pour une carte d'identité à Paris en mars 2026 ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-033",
+   "masked": "Mon code postal est 78300, quelle mairie dois-je contacter ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-034",
+   "masked": "L'amende de 135 euros peut-elle être minorée à 90 euros ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-035",
+   "masked": "Le SIRET 732 829 320 00074 correspond-il à une entreprise ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-036",
+   "masked": "Que dit l'article L. 121-1 du code de la route ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-037",
+   "masked": "Le ministère de l'Intérieur publie-t-il les délais par département ?",
+   "missed": [],
+   "wrong": []
+  },
+  {
+   "id": "pii-038",
+   "masked": "Victor Hugo est-il le nom de la rue de la mairie ?",
+   "missed": [],
+   "wrong": []
+  }
+ ],
+ "gates": {
+  "leaks": {
+   "value": 0,
+   "threshold": "<= 0",
+   "pass": true
+  },
+  "false_masks": {
+   "value": 0,
+   "threshold": "<= 0",
+   "pass": true
+  },
+  "name_recall": {
+   "value": null,
+   "threshold": ">= 0.8",
+   "pass": null
+  },
+  "name_precision": {
+   "value": null,
+   "threshold": ">= 0.8",
+   "pass": null
+  }
+ }
+}

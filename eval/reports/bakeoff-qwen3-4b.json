@@ -1,0 +1,231 @@
+{
+  "generated_at": "2026-11-09T18:19:32+00:00",
+  "n_cases": 20,
+  "mode": "full",
+  "recall@5": 0.917,
+  "mrr": 0.861,
+  "false_accept_rate": 0.0,
+  "correct_refusal_rate": 1.0,
+  "over_refusal_rate": 0.25,
+  "n_answerable": 12,
+  "n_unanswerable": 8,
+  "model": {
+    "preset": "qwen3-4b",
+    "label": "Alibaba Qwen3 4B",
+    "model_id": "qwen3:4b",
+    "provider": "ollama",
+    "digest": "359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
+    "gpu": "A10G"
+  },
+  "latency_s": {
+    "mean": 18.06,
+    "p50": 10.79,
+    "p95": 79.42
+  },
+  "usage": {
+    "llm_answers": 13,
+    "prompt_tokens": 27897,
+    "completion_tokens": 35533,
+    "llm_seconds": 360.4,
+    "est_cost_usd_total": 0.1101,
+    "est_cost_usd_per_llm_answer": 0.00847
+  },
+  "cases": [
+    {
+      "id": "aapl-supply-risk",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 53.07,
+      "prompt_tokens": 1930,
+      "completion_tokens": 2972,
+      "est_cost_usd": 0.0162
+    },
+    {
+      "id": "aapl-segments",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 20.81,
+      "prompt_tokens": 2228,
+      "completion_tokens": 2292,
+      "est_cost_usd": 0.006342
+    },
+    {
+      "id": "aapl-net-sales-drivers",
+      "answerable": true,
+      "refused": true,
+      "stage": "model",
+      "seconds": 48.89,
+      "prompt_tokens": 2612,
+      "completion_tokens": 5160,
+      "est_cost_usd": 0.014921
+    },
+    {
+      "id": "msft-cloud",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 20.74,
+      "prompt_tokens": 2520,
+      "completion_tokens": 2228,
+      "est_cost_usd": 0.006322
+    },
+    {
+      "id": "msft-ai-risk",
+      "answerable": true,
+      "refused": true,
+      "stage": "numbers",
+      "seconds": 60.58,
+      "prompt_tokens": 1820,
+      "completion_tokens": 6379,
+      "est_cost_usd": 0.018491
+    },
+    {
+      "id": "msft-cyber",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 15.72,
+      "prompt_tokens": 1745,
+      "completion_tokens": 1728,
+      "est_cost_usd": 0.004788
+    },
+    {
+      "id": "nvda-export",
+      "answerable": true,
+      "refused": true,
+      "stage": "model",
+      "seconds": 79.42,
+      "prompt_tokens": 1746,
+      "completion_tokens": 8192,
+      "est_cost_usd": 0.024247
+    },
+    {
+      "id": "nvda-datacenter",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 9.06,
+      "prompt_tokens": 2344,
+      "completion_tokens": 927,
+      "est_cost_usd": 0.002753
+    },
+    {
+      "id": "nvda-customers",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 10.85,
+      "prompt_tokens": 2324,
+      "completion_tokens": 1155,
+      "est_cost_usd": 0.003301
+    },
+    {
+      "id": "jpm-credit-risk",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 10.79,
+      "prompt_tokens": 2056,
+      "completion_tokens": 1161,
+      "est_cost_usd": 0.003281
+    },
+    {
+      "id": "jpm-legal",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 15.02,
+      "prompt_tokens": 2242,
+      "completion_tokens": 1623,
+      "est_cost_usd": 0.004574
+    },
+    {
+      "id": "jpm-market-risk",
+      "answerable": true,
+      "refused": false,
+      "stage": "answered",
+      "seconds": 9.44,
+      "prompt_tokens": 2049,
+      "completion_tokens": 1015,
+      "est_cost_usd": 0.002871
+    },
+    {
+      "id": "tsla-revenue",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "seconds": 0.0
+    },
+    {
+      "id": "amzn-aws",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "seconds": 0.0
+    },
+    {
+      "id": "aapl-2009",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "seconds": 0.0
+    },
+    {
+      "id": "msft-2031",
+      "answerable": false,
+      "refused": true,
+      "stage": "scope",
+      "seconds": 0.0
+    },
+    {
+      "id": "nvda-stock-forecast",
+      "answerable": false,
+      "refused": true,
+      "stage": "model",
+      "seconds": 6.74,
+      "prompt_tokens": 2281,
+      "completion_tokens": 701,
+      "est_cost_usd": 0.002045
+    },
+    {
+      "id": "jpm-ceo-hobby",
+      "answerable": false,
+      "refused": true,
+      "stage": "evidence",
+      "seconds": 0.04
+    },
+    {
+      "id": "aapl-store-employee",
+      "answerable": false,
+      "refused": true,
+      "stage": "evidence",
+      "seconds": 0.03
+    },
+    {
+      "id": "msft-office-lunch",
+      "answerable": false,
+      "refused": true,
+      "stage": "evidence",
+      "seconds": 0.03
+    }
+  ],
+  "gates": {
+    "recall@5": {
+      "value": 0.917,
+      "threshold": ">= 0.8",
+      "pass": true
+    },
+    "mrr": {
+      "value": 0.861,
+      "threshold": ">= 0.6",
+      "pass": true
+    },
+    "false_accept_rate": {
+      "value": 0.0,
+      "threshold": "<= 0.1",
+      "pass": true
+    }
+  }
+}

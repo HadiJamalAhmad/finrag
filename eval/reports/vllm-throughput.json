@@ -1,0 +1,18 @@
+{
+ "sequential": {
+  "requests": 8,
+  "concurrency": 1,
+  "seconds": 73.27,
+  "output_tokens": 2048,
+  "tokens_per_s": 28.0
+ },
+ "concurrent": {
+  "requests": 32,
+  "concurrency": 32,
+  "seconds": 29.63,
+  "output_tokens": 8192,
+  "tokens_per_s": 276.4
+ },
+ "gpus": 2,
+ "speedup": 9.9
+}
