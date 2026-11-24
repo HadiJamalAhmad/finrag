@@ -1,0 +1,12 @@
+# The model's weights, brought in by the operator (run.sh streams them in and checks
+# every file's SHA-256 against weights.lock inside the cluster), as on an air-gapped site.
+# ReadWriteOnce on a single node: every vLLM replica on that node mounts it read-only.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: llm-weights
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 3Gi

@@ -1,0 +1,107 @@
+# vLLM's OpenAI-compatible server. Offline by construction: the weights come from the
+# volume, Hugging Face is told not to call home, and network.yaml blocks all egress.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+spec:
+  replicas: 1  # KEDA (autoscale/) moves it between 1 and 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vllm
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai-cpu:v0.34.0-x86_64@sha256:b14c3a46a4b08852b32528643e070d57f3731cccb0fa33ef86d4f3b3f8ac36c4
+          imagePullPolicy: IfNotPresent
+          command: [vllm, serve]
+          args:
+            - /models/qwen2.5-0.5b-instruct
+            - --served-model-name=qwen2.5-0.5b
+            - --host=0.0.0.0
+            - --port=8000
+            - --dtype=bfloat16
+            - --max-model-len=2048
+            # Few sequences at a time per replica: a burst of requests then queues, and
+            # the queue length is what the autoscaler watches.
+            - --max-num-seqs=4
+          env:
+            - name: HF_HUB_OFFLINE
+              value: "1"
+            - name: TRANSFORMERS_OFFLINE
+              value: "1"
+            - name: VLLM_NO_USAGE_STATS
+              value: "1"
+            - name: DO_NOT_TRACK
+              value: "1"
+            - name: VLLM_CPU_KVCACHE_SPACE  # GiB of KV cache per replica
+              value: "1"
+            # Several replicas share the node's cores: no pinning of threads to cores.
+            - name: VLLM_CPU_OMP_THREADS_BIND
+              value: nobind
+          ports:
+            - name: http
+              containerPort: 8000
+          volumeMounts:
+            - name: weights
+              mountPath: /models
+              readOnly: true
+            - name: shm
+              mountPath: /dev/shm
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+            failureThreshold: 120  # up to 10 minutes to load on a shared CPU
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 30
+            timeoutSeconds: 10
+          resources:
+            requests: {cpu: "1", memory: 3Gi}
+            limits: {memory: 5Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+            seccompProfile: {type: RuntimeDefault}
+      volumes:
+        - name: weights
+          persistentVolumeClaim:
+            claimName: llm-weights
+            readOnly: true
+        - name: shm
+          emptyDir: {medium: Memory, sizeLimit: 1Gi}
+---
+# The entry point: kube-proxy spreads requests over the ready replicas.
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm
+spec:
+  selector:
+    app.kubernetes.io/name: vllm
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+# Headless: one DNS record per ready replica, so Prometheus scrapes each of them.
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-pods
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: vllm
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

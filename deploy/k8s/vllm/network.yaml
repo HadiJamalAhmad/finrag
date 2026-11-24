@@ -1,0 +1,24 @@
+# The model server may not open any connection: no DNS, no Internet, no other pod.
+# Only the namespace's clients (label finrag-llm/client) and Prometheus may reach it.
+# run.sh checks both sides: the vLLM pod cannot reach the Internet, a control pod in the
+# same namespace can (so the block is this policy, not the runner), and vLLM still answers.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vllm-no-egress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+  policyTypes: [Ingress, Egress]
+  egress: []
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              finrag-llm/client: "true"
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 8000

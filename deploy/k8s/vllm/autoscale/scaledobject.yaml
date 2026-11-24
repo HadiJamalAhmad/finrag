@@ -1,0 +1,25 @@
+# Scale vLLM on its own queue: requests waiting for a slot, summed over the replicas.
+# One more replica per 2 waiting requests, between 1 and 3.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: vllm
+  namespace: finrag-llm
+spec:
+  scaleTargetRef:
+    name: vllm
+  minReplicaCount: 1
+  maxReplicaCount: 3
+  pollingInterval: 5
+  cooldownPeriod: 60
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 60
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.finrag-llm.svc.cluster.local:9090
+        query: sum(vllm:num_requests_waiting) or vector(0)
+        threshold: "2"

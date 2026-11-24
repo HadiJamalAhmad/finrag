@@ -1,0 +1,20 @@
+# A sovereign LLM on Kubernetes: vLLM serving open weights from a volume, cut off from
+# the Internet, scaled on its own queue length, watched by Prometheus.
+#
+#   deploy/k8s/vllm/run.sh      # the whole proof on a kind cluster (what CI runs)
+#
+# The KEDA ScaledObject lives in ./autoscale (applied once KEDA's CRDs exist).
+# CPU variant: Qwen2.5-0.5B-Instruct, so it runs on a free GitHub runner. On a GPU node,
+# use the image vllm/vllm-openai and add `nvidia.com/gpu: 1` to the limits.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: finrag-llm
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: finrag-llm
+resources:
+  - namespace.yaml
+  - weights.yaml
+  - vllm.yaml
+  - network.yaml
+  - prometheus.yaml
