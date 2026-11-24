@@ -56,7 +56,9 @@ jobs:
         run: |
           kubectl -n finrag-llm get all,pvc,scaledobject,hpa || true
           kubectl -n finrag-llm describe pods | tail -120 || true
-          kubectl -n finrag-llm logs deploy/vllm --tail=120 || true
+          # The first error, not the traceback that repeats it: earliest lines first.
+          kubectl -n finrag-llm logs deploy/vllm --previous 2>/dev/null \
+            | grep -v 'core.py:1757' | head -200 || true
       - name: Free the cluster's disk before the scan
         if: always()
         run: kind delete cluster --name llm
