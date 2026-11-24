@@ -6,6 +6,7 @@ metadata:
   name: vllm
 spec:
   replicas: 1  # KEDA (autoscale/) moves it between 1 and 3
+  progressDeadlineSeconds: 900
   selector:
     matchLabels:
       app.kubernetes.io/name: vllm
@@ -33,7 +34,13 @@ spec:
             # Few sequences at a time per replica: a burst of requests then queues, and
             # the queue length is what the autoscaler watches.
             - --max-num-seqs=4
+            # No torch.compile warm-up: on 4 shared vCPUs it took over 6 minutes and went
+            # past 5 GiB (OOMKilled). Eager mode starts in seconds, which also lets a new
+            # replica join while the burst is still on.
+            - --enforce-eager
           env:
+            - name: OMP_NUM_THREADS
+              value: "2"
             - name: HF_HUB_OFFLINE
               value: "1"
             - name: TRANSFORMERS_OFFLINE
