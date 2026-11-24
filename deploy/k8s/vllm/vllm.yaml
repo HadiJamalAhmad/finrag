@@ -75,7 +75,9 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 10
           resources:
-            requests: {cpu: "1", memory: 3Gi}
+            # 500m, not 1: with the control plane and KEDA, a third replica asking for a
+            # whole vCPU stayed Pending on the 4-vCPU node. The replicas share the cores.
+            requests: {cpu: 500m, memory: 3Gi}
             limits: {memory: 5Gi}
           securityContext:
             allowPrivilegeEscalation: false
