@@ -71,12 +71,15 @@ for ln in read("samples.txt").splitlines():
         t, ready, desired, waiting, running = parts
         samples.append({"t": int(t), "ready": int(ready), "desired": int(desired),
                         "waiting": float(waiting), "running": float(running)})
-burst = next((s["t"] for s in samples if s["waiting"] > 0 or s["running"] > 0), None)
+# The burst starts when run.sh launches the load test (recorded, not guessed from a gauge).
+burst = int(read("load-start.txt"))
+gaps = [b["t"] - a["t"] for a, b in zip(samples, samples[1:], strict=False)]
+sample_period = round(statistics.median(gaps), 1) if gaps else None
 
 
 def first(pred):
     s = next((s for s in samples if pred(s)), None)
-    return None if s is None or burst is None else s["t"] - burst
+    return None if s is None else s["t"] - burst
 
 
 per_pod_raw = json.loads(read("per-pod.json"))["data"]["result"]
@@ -121,8 +124,11 @@ report = {
     },
     "autoscaling": {
         "max_ready_replicas": max_ready,
-        "seconds_from_burst_to_scale_decision": first(lambda s: s["desired"] > 1),
-        "seconds_from_burst_to_3_ready": first(lambda s: s["ready"] >= 3),
+        "burst_starts_at_s": burst,
+        "sample_period_s": sample_period,  # the times below are known to this precision
+        "seconds_from_burst_to_scale_decision": first(
+            lambda s: s["t"] >= burst and s["desired"] > 1),
+        "seconds_from_burst_to_3_ready": first(lambda s: s["t"] >= burst and s["ready"] >= 3),
         "requests_completed_per_replica": per_pod,
         "timeline": samples,
     },

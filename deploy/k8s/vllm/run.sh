@@ -148,11 +148,12 @@ T0=$(date +%s)
     desired=$(k get deploy vllm -o jsonpath='{.spec.replicas}')
     printf '%s %s %s %s %s\n' "$(( $(date +%s) - T0 ))" "${ready:-0}" "${desired:-0}" \
       "$(promq 'sum(vllm:num_requests_waiting)')" "$(promq 'sum(vllm:num_requests_running)')"
-    sleep 5
+    sleep 1  # each sample already takes a few seconds (kubectl + two queries)
   done
 ) > "$WORK/samples.txt" 2>/dev/null &
 SAMPLER=$!
 sleep 15  # a quiet baseline before the burst
+echo "$(( $(date +%s) - T0 ))" > "$WORK/load-start.txt"  # the burst starts now
 k exec -i llm-client -- python - http://vllm:8000 "$CONC" "$SECONDS_LOAD" "$MAX_TOKENS" \
   < $D/loadtest.py | grep '^RESULT ' | sed 's/^RESULT //' > "$WORK/load.json"
 sleep 20  # the queue after the burst
