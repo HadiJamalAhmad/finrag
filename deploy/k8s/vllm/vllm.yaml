@@ -15,6 +15,9 @@ spec:
         app.kubernetes.io/name: vllm
     spec:
       terminationGracePeriodSeconds: 30
+      # No VLLM_PORT=tcp://... injected by the Service named vllm: vLLM reads VLLM_PORT
+      # as its own setting and refuses to start.
+      enableServiceLinks: false
       containers:
         - name: vllm
           image: vllm/vllm-openai-cpu:v0.34.0-x86_64@sha256:b14c3a46a4b08852b32528643e070d57f3731cccb0fa33ef86d4f3b3f8ac36c4
