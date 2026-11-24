@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The sovereign-LLM proof on a Kubernetes cluster, end to end (what CI runs):
 #   weights in (checksums) -> vLLM + Prometheus -> KEDA autoscaling -> sovereignty checks
-#   -> load test with the replica count sampled every 5 s -> report (deploy/k8s/vllm/report.py).
+#   -> load test (replica changes watched, queue read from Prometheus) -> report (deploy/k8s/vllm/report.py).
 #
 #   WEIGHTS=/path/to/qwen2.5-0.5b-instruct CONTEXT=kind-llm deploy/k8s/vllm/run.sh
 #
@@ -133,32 +133,35 @@ EOF
 head -c 600 "$WEIGHTS/LICENSE" | tr -s ' \n' ' ' | head -c 80 > "$WORK/license.txt"; echo
 
 # ------------------------------------------------------------------ load test
-step "load test: $CONC clients for ${SECONDS_LOAD}s, replicas sampled every 5 s"
-k port-forward svc/prometheus 19090:9090 >/dev/null 2>&1 &
-PF=$!
-for _ in $(seq 30); do curl -s -o /dev/null http://127.0.0.1:19090/-/ready && break; sleep 1; done
-promq() {  # one instant query -> its value (0 when empty)
-  curl -s --get http://127.0.0.1:19090/api/v1/query --data-urlencode "query=$1" \
-    | python3 -c "import sys,json;r=json.load(sys.stdin)['data']['result'];print(r[0]['value'][1] if r else 0)"
-}
+step "load test: $CONC clients for ${SECONDS_LOAD}s"
+# Nothing polls during the burst: on 4 shared vCPUs, a sampler running kubectl and curl
+# in a loop took a core from vLLM's OpenMP threads and cut its throughput five-fold.
+# Replica changes come from a watch (one event per change, to the second); the queue's
+# history is read from Prometheus once the burst is over.
 T0=$(date +%s)
 (
-  while true; do
-    ready=$(k get deploy vllm -o jsonpath='{.status.readyReplicas}')
-    desired=$(k get deploy vllm -o jsonpath='{.spec.replicas}')
-    printf '%s %s %s %s %s\n' "$(( $(date +%s) - T0 ))" "${ready:-0}" "${desired:-0}" \
-      "$(promq 'sum(vllm:num_requests_waiting)')" "$(promq 'sum(vllm:num_requests_running)')"
-    sleep 1  # each sample already takes a few seconds (kubectl + two queries)
-  done
-) > "$WORK/samples.txt" 2>/dev/null &
+  k get deploy vllm --watch -o jsonpath='{.spec.replicas} {.status.readyReplicas}{"\n"}' \
+    | while read -r desired ready; do echo "$(( $(date +%s) - T0 )) $desired ${ready:-0}"; done
+) > "$WORK/replicas.txt" 2>/dev/null &
 SAMPLER=$!
 sleep 15  # a quiet baseline before the burst
 echo "$(( $(date +%s) - T0 ))" > "$WORK/load-start.txt"  # the burst starts now
 k exec -i llm-client -- python - http://vllm:8000 "$CONC" "$SECONDS_LOAD" "$MAX_TOKENS" \
   < $D/loadtest.py | grep '^RESULT ' | sed 's/^RESULT //' > "$WORK/load.json"
-sleep 20  # the queue after the burst
-kill "$SAMPLER"; SAMPLER=""
-cat "$WORK/samples.txt"
+sleep 30  # the queue after the burst
+kill "$SAMPLER"; pkill -f 'get deploy vllm --watch' || true; SAMPLER=""
+echo "end $(( $(date +%s) - T0 ))" >> "$WORK/replicas.txt"
+cat "$WORK/replicas.txt"
+
+k port-forward svc/prometheus 19090:9090 >/dev/null 2>&1 &
+PF=$!
+for _ in $(seq 30); do curl -s -o /dev/null http://127.0.0.1:19090/-/ready && break; sleep 1; done
+for m in waiting running; do
+  curl -s --get http://127.0.0.1:19090/api/v1/query_range \
+    --data-urlencode "query=sum(vllm:num_requests_$m) or vector(0)" \
+    --data-urlencode "start=$T0" --data-urlencode "end=$(date +%s)" \
+    --data-urlencode "step=5" > "$WORK/queue-$m.json"
+done
 
 # Per replica: requests completed and tokens generated (counters since each pod started).
 curl -s --get http://127.0.0.1:19090/api/v1/query \

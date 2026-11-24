@@ -64,27 +64,45 @@ for r in ok:
 throughput = [{"from_s": b * window, "tokens_per_s": round(v / window, 1)}
               for b, v in sorted(buckets.items())]
 
-samples = []
-for ln in read("samples.txt").splitlines():
+# Replica changes, one line per watch event: "<t> <desired> <ready>", then "end <t>".
+t0 = int(sys.argv[3])
+events = []
+for ln in read("replicas.txt").splitlines():
     parts = ln.split()
-    if len(parts) == 5:
-        t, ready, desired, waiting, running = parts
-        samples.append({"t": int(t), "ready": int(ready), "desired": int(desired),
-                        "waiting": float(waiting), "running": float(running)})
+    if len(parts) == 3 and parts[0].isdigit():
+        events.append({"t": int(parts[0]), "desired": int(parts[1]), "ready": int(parts[2])})
 # The burst starts when run.sh launches the load test (recorded, not guessed from a gauge).
 burst = int(read("load-start.txt"))
-gaps = [b["t"] - a["t"] for a, b in zip(samples, samples[1:], strict=False)]
-sample_period = round(statistics.median(gaps), 1) if gaps else None
 
 
-def first(pred):
-    s = next((s for s in samples if pred(s)), None)
-    return None if s is None else s["t"] - burst
+def queue(name):  # Prometheus range query, every 5 s -> {t: value}
+    res = json.loads(read(f"queue-{name}.json"))["data"]["result"]
+    return {int(float(ts)) - t0: float(v) for ts, v in (res[0]["values"] if res else [])}
+
+
+waiting, running = queue("waiting"), queue("running")
+
+
+def replicas_at(t):
+    now = {"desired": 1, "ready": 1}
+    for ev in events:
+        if ev["t"] <= t:
+            now = ev
+    return now
+
+
+samples = [{"t": t, **{k: replicas_at(t)[k] for k in ("desired", "ready")},
+            "waiting": waiting[t], "running": running.get(t, 0.0)} for t in sorted(waiting)]
+
+
+def first(pred):  # seconds from the burst to the first watch event matching pred
+    ev = next((ev for ev in events if ev["t"] >= burst and pred(ev)), None)
+    return None if ev is None else ev["t"] - burst
 
 
 per_pod_raw = json.loads(read("per-pod.json"))["data"]["result"]
 per_pod = {r["metric"].get("instance", "?"): int(float(r["value"][1])) for r in per_pod_raw}
-max_ready = max((s["ready"] for s in samples), default=0)
+max_ready = max((ev["ready"] for ev in events), default=0)
 
 checks = {
     "weights_verified": len(weights_lines) == 8 and all(ln.endswith(": OK")
@@ -125,12 +143,12 @@ report = {
     "autoscaling": {
         "max_ready_replicas": max_ready,
         "burst_starts_at_s": burst,
-        "sample_period_s": sample_period,  # the times below are known to this precision
-        "seconds_from_burst_to_scale_decision": first(
-            lambda s: s["t"] >= burst and s["desired"] > 1),
-        "seconds_from_burst_to_3_ready": first(lambda s: s["t"] >= burst and s["ready"] >= 3),
+        # From the watch events, to the second.
+        "seconds_from_burst_to_scale_decision": first(lambda ev: ev["desired"] > 1),
+        "seconds_from_burst_to_3_ready": first(lambda ev: ev["ready"] >= 3),
         "requests_completed_per_replica": per_pod,
-        "timeline": samples,
+        "replica_events": events,
+        "timeline": samples,  # every 5 s: queue from Prometheus, replicas from the events
     },
     "note": "One runner, 4 shared vCPUs: extra replicas prove the operations (scheduling, "
             "readiness, load spreading, queue-driven scaling), not more throughput. The "
