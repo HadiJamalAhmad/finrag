@@ -1,5 +1,7 @@
-# Scale vLLM on its own queue: requests waiting for a slot, summed over the replicas.
-# One more replica per 2 waiting requests, between 1 and 3.
+# Scale vLLM on its own load: requests waiting AND running, summed over the replicas.
+# One replica serves 4 at a time (--max-num-seqs), so one replica per 4 requests, 1 to 3.
+# Waiting alone was wrong: once the queue emptied, KEDA removed replicas that were still
+# generating answers (8 requests lost in a CI run). See also the preStop drain in vllm.yaml.
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -21,5 +23,5 @@ spec:
     - type: prometheus
       metadata:
         serverAddress: http://prometheus.finrag-llm.svc.cluster.local:9090
-        query: sum(vllm:num_requests_waiting) or vector(0)
-        threshold: "2"
+        query: sum(vllm:num_requests_waiting) + sum(vllm:num_requests_running) or vector(0)
+        threshold: "4"

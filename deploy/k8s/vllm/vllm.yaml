@@ -15,7 +15,8 @@ spec:
       labels:
         app.kubernetes.io/name: vllm
     spec:
-      terminationGracePeriodSeconds: 30
+      # Long enough for the preStop drain below to let the last answers finish.
+      terminationGracePeriodSeconds: 600
       # No VLLM_PORT=tcp://... injected by the Service named vllm: vLLM reads VLLM_PORT
       # as its own setting and refuses to start.
       enableServiceLinks: false
@@ -63,6 +64,26 @@ spec:
               readOnly: true
             - name: shm
               mountPath: /dev/shm
+          # Drain before stopping: a terminating pod leaves the Service at once (no new
+          # requests), then waits until it has nothing running or waiting, read from its
+          # own /metrics, before vLLM gets SIGTERM. A scale-down never cuts an answer.
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - python3
+                  - -c
+                  - |
+                    import time, urllib.request
+                    time.sleep(5)
+                    for _ in range(580):
+                        m = urllib.request.urlopen("http://127.0.0.1:8000/metrics", timeout=5)
+                        busy = sum(float(ln.split()[-1]) for ln in m.read().decode().splitlines()
+                                   if ln.startswith(("vllm:num_requests_running",
+                                                     "vllm:num_requests_waiting")))
+                        if busy == 0:
+                            break
+                        time.sleep(1)
           startupProbe:
             httpGet: {path: /health, port: http}
             periodSeconds: 5

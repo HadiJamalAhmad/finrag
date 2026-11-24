@@ -165,7 +165,7 @@ done
 
 # Per replica: requests completed and tokens generated (counters since each pod started).
 curl -s --get http://127.0.0.1:19090/api/v1/query \
-  --data-urlencode 'query=sum by (instance) (vllm:request_success_total)' > "$WORK/per-pod.json"
+  --data-urlencode 'query=sum by (instance) (max_over_time(vllm:request_success_total[30m]))' > "$WORK/per-pod.json"  # incl. replicas gone since
 k get pods -o wide
 
 # ------------------------------------------------------------------ report
